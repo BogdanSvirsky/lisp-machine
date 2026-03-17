@@ -1,4 +1,3 @@
-from decimal import InvalidOperation
 import re
 from typing import TextIO
 from .tokens import *

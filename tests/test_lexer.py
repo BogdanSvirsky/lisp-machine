@@ -1,5 +1,6 @@
 import io
-from lexer import *
+from lexer import Lexer
+from lexer.tokens import *
 import pytest
 
 
