@@ -1,19 +1,17 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from lexer.tokens import *
 
 
 @dataclass
 class ASTNode:
-    children: list['ASTNode']
+    children: list['ASTNode'] = field(default=[])
 
 
 @dataclass
 class ASTLiteral(ASTNode):
-    children = 
-    token: Number | String | Boolean
+    value: str | bool | float | int 
 
 
 @dataclass
 class ASTCall(ASTNode):
-    children = []
-    name: str
+    name: str = field()

@@ -1,17 +1,10 @@
-import pytest
 from lexer.tokens import *
 from parser import Parser
-from parser.ast import ASTNode
+from parser.ast import *
 
 
-@pytest.mark.parametrize(
-        ('tokens', 'roots'), 
-        (
-            (
-                [LParen(), Symbol('+'), Number(1), Number(2), RParen()],
-                []
-            )
-        )
-def test_basics(tokens: list[Token], roots: list[ASTNode]):
-    parser = Parser() 
-    assert parser.parse(tokens) == roots
+def test_basics():
+    parser = Parser()
+    root = ASTCall('+')
+    root.children.extend([ASTLiteral(2), ASTLiteral(2)])
+    assert parser.parse([LParen(), Symbol('+'), Number(1), Number(2), RParen()]) == [root]

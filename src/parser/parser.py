@@ -8,6 +8,9 @@ class ParseException(Exception):
 
 
 class Parser:
+    def __init__(self) -> None:
+        pass
+
     def parse(self, tokens: Sequence[Token]) -> list[ASTNode]:
         roots = []
         iterator = iter(tokens)
@@ -42,7 +45,7 @@ class Parser:
                 new_node = self._parse_list(iterator)
             elif isinstance(token, Number) or isinstance(
                     token, String) or isinstance(token, Boolean):
-                new_node = ASTLiteral(token)
+                new_node = ASTLiteral(token.value)
             elif isinstance(token, Symbol):
                 new_node = ASTCall(token.value)
             else:
