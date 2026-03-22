@@ -1,4 +1,3 @@
-from decimal import Decimal
 from dataclasses import dataclass
 from typing import Any
 
@@ -7,7 +6,7 @@ class Token:
     value: Any = None
 
     def __eq__(self, value) -> bool:
-        return isinstance(self, type(value)) and self.value == value.value
+        return type(value) == type(self) and self.value == value.value
 
 
 class LParen(Token):
