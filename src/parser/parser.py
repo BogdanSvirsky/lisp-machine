@@ -7,6 +7,10 @@ class ParseException(Exception):
     pass
 
 
+class InvalidArgumentsCount(Exception):
+    pass
+
+
 BINARY_OPERATORS: list[str] = [
     '+', '-', '/', '*', '<', '>', '==', '<=', '>=']
 
@@ -24,9 +28,7 @@ def parse(tokens: Sequence[Token]) -> list[ASTNode]:
         if not isinstance(token, LParen):
             raise ParseException()
         tokens_list = _convert_to_list(iterator)
-        if not tokens_list:
-            break
-        # process list
+        roots.append(_parse_list(tokens_list))
 
     return roots
 
@@ -39,6 +41,9 @@ def _convert_to_list(iterator: Iterator[Token]) -> list[Token | list]:
         except StopIteration:
             raise ParseException()
 
+
+: q
+: q
         if isinstance(token, RParen):
             break
         if isinstance(token, LParen):
@@ -50,31 +55,16 @@ def _convert_to_list(iterator: Iterator[Token]) -> list[Token | list]:
 
 
 def _parse_list(tokens: list[Token | list]) -> ASTNode:
-    node: Optional[ASTNode] = None
-    for elem in tokens:
-        if isinstance(token, RParen):
-            break
-
-        new_node: ASTNode
-        if isinstance(token, LParen):
-            if node is None:
-                raise ParseException()
-            new_node = _parse_list(iterator)
-        elif isinstance(token, Symbol):
-            if token.value in BINARY_OPERATORS:
-                left =
-            new_node = ASTCall(token.value)
-        else:
-            new_node = _parse_literal(token)
-
-        if node is None:
-            node = new_node
-        else:
-            node.children.append(new_node)
-
-    if node is None:
+    if len(tokens) == 0:
         raise ParseException()
-    return node
+
+    if isinstance(tokens[0], Symbol):
+        if tokens[0].value in BINARY_OPERATORS:
+            if len(tokens) == 3:
+                return ASTBinaryOp(tokens[0].value, _parse_list(tokens[1]) if isinstance(tokens[1], list) else _parse_literal(tokens[1], _parse_list(tokens[1]) if isinstance(tokens[1], list) else _parse_literal(tokens[1]))
+            else:
+                raise InvalidArgumentsCount()
+
 
 
 def _parse_literal(token: Token) -> ASTNumber | ASTBoolean | ASTString:
