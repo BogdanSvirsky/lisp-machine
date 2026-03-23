@@ -1,1 +1,1 @@
-from .parser import Parser, ParseException
+from .parser import parse
