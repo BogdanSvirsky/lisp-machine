@@ -1,4 +1,3 @@
-# tests/test_lexer.py
 import io
 import pytest
 from lexer import Lexer
