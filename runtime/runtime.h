@@ -7,6 +7,7 @@
 
 typedef enum {
     TYPE_INT,
+    TYPE_FLOAT,
     TYPE_STRING,
     TYPE_BOOLEAN
 } LispType;
@@ -15,6 +16,7 @@ typedef struct LispObject {
     LispType type;
     union {
         int int_val;
+        double float_val;
         char* str_val;
         int bool_val;
     } value;
@@ -26,6 +28,7 @@ extern LispObject LISP_T_OBJ;
 #define LISP_T (&LISP_T_OBJ)
 
 LispObject* make_integer(int n);
+LispObject* make_float(double f);
 LispObject* make_string(const char* str);
 LispObject* make_boolean(int b);
 

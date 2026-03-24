@@ -6,7 +6,6 @@ class CCodeGenerator:
         self.temp_counter = 0
     
     def generate(self, ast: ASTProgram) -> str:
-        """Генерирует main.c из AST программы"""
         code = []
         
         code.append('#include "runtime/runtime.h"\n\n')
@@ -23,7 +22,6 @@ class CCodeGenerator:
         return ''.join(code)
     
     def _generate_expr(self, node: ASTNode) -> str:
-        """Генерирует C-код для одного выражения"""
         if isinstance(node, ASTLiteral):
             return self._generate_literal(node)
         elif isinstance(node, ASTCall):
@@ -32,9 +30,10 @@ class CCodeGenerator:
             raise NotImplementedError(f"Unknown node: {type(node)}")
     
     def _generate_literal(self, node: ASTLiteral) -> str:
-        """Генерирует C-код для литерала"""
         if isinstance(node.value, int):
             return f'make_integer({node.value})'
+        elif isinstance(node.value, float):
+            return f'make_float({node.value})'
         elif isinstance(node.value, float):
             return f'make_float({node.value})'
         elif isinstance(node.value, str):
@@ -46,7 +45,6 @@ class CCodeGenerator:
             raise NotImplementedError(f"Unknown literal: {type(node.value)}")
     
     def _generate_call(self, node: ASTCall) -> str:
-        """Генерирует C-код для вызова функции"""
         func_name = node.function.name
         
         arg_codes = [self._generate_expr(arg) for arg in node.args]
