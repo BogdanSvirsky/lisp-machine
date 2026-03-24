@@ -26,7 +26,8 @@ class Parser:
             expr = self._parse_expr()
             expressions.append(expr)
         
-        return ASTProgram(expressions)    
+        return ASTProgram(expressions)
+    
     def _parse_expr(self) -> ASTNode:
         token = self._peek()
         
@@ -50,7 +51,7 @@ class Parser:
     def _parse_list(self) -> ASTNode:
         self._advance()
         
-        # Пустой список  не поддерживаем 
+        # Пустой список не поддерживаем 
         if isinstance(self._peek(), RParen):
             self._advance()
             raise ParseException("Empty list not supported yet")
@@ -60,6 +61,9 @@ class Parser:
         if not isinstance(first, ASTSymbol):
             raise ParseException("First element of list must be a symbol (function name)")
         
+        if first.name == 'if':
+            return self._parse_if()
+        
         args = []
         while not isinstance(self._peek(), RParen):
             args.append(self._parse_expr())
@@ -67,6 +71,26 @@ class Parser:
         self._advance()
         
         return ASTCall(function=first, args=args)
+    
+    def _parse_if(self) -> ASTIf:
+        """Парсит (if cond then else)"""
+        condition = self._parse_expr()
+        
+        then_branch = self._parse_expr()
+        
+        else_branch = None
+        if not isinstance(self._peek(), RParen):
+            else_branch = self._parse_expr()
+        
+        if not isinstance(self._peek(), RParen):
+            raise ParseException("Expected ')'")
+        self._advance()
+        
+        return ASTIf(
+            condition=condition,
+            then_branch=then_branch,
+            else_branch=else_branch
+        )
     
     def _peek(self) -> Token:
         if self.pos >= len(self.tokens):

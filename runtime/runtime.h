@@ -39,4 +39,10 @@ LispObject* lisp_div(LispObject* a, LispObject* b);
 
 LispObject* lisp_print(LispObject* obj);
 
+LispObject* lisp_gt(LispObject* a, LispObject* b);
+LispObject* lisp_ge(LispObject* a, LispObject* b);
+LispObject* lisp_lt(LispObject* a, LispObject* b);
+LispObject* lisp_le(LispObject* a, LispObject* b);
+LispObject* lisp_eq(LispObject* a, LispObject* b);
+
 #endif

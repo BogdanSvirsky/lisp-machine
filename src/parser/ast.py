@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 
 class ASTNode:
@@ -14,6 +14,12 @@ class ASTLiteral(ASTNode):
 @dataclass
 class ASTSymbol(ASTNode):
     name: str
+    
+@dataclass
+class ASTIf(ASTNode):
+    condition: ASTNode
+    then_branch: ASTNode
+    else_branch: Optional[ASTNode]
 
 
 @dataclass

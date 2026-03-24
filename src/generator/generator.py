@@ -26,6 +26,8 @@ class CCodeGenerator:
             return self._generate_literal(node)
         elif isinstance(node, ASTCall):
             return self._generate_call(node)
+        elif isinstance(node, ASTIf):
+            return self._generate_if(node)
         else:
             raise NotImplementedError(f"Unknown node: {type(node)}")
     
@@ -86,5 +88,62 @@ class CCodeGenerator:
                 result = f'lisp_div({result}, {arg})'
             return result
         
+        elif func_name == '>':
+            if len(arg_codes) != 2:
+                raise Exception(f"> expects 2 arguments, got {len(arg_codes)}")
+            return f'lisp_gt({arg_codes[0]}, {arg_codes[1]})'
+        
+        elif func_name == '>=':
+            if len(arg_codes) != 2:
+                raise Exception(f">= expects 2 arguments, got {len(arg_codes)}")
+            return f'lisp_ge({arg_codes[0]}, {arg_codes[1]})'
+        
+        elif func_name == '<':
+            if len(arg_codes) != 2:
+                raise Exception(f"< expects 2 arguments, got {len(arg_codes)}")
+            return f'lisp_lt({arg_codes[0]}, {arg_codes[1]})'
+        
+        elif func_name == '<=':
+            if len(arg_codes) != 2:
+                raise Exception(f"<= expects 2 arguments, got {len(arg_codes)}")
+            return f'lisp_le({arg_codes[0]}, {arg_codes[1]})'
+        
+        elif func_name == '==':
+            if len(arg_codes) != 2:
+                raise Exception(f"== expects 2 arguments, got {len(arg_codes)}")
+            return f'lisp_eq({arg_codes[0]}, {arg_codes[1]})'
+        
         else:
             raise Exception(f"Unknown built-in function: {func_name}")
+        
+    def _generate_if(self, node: ASTIf) -> str:
+        cond = self._generate_expr(node.condition)
+        then_branch = self._generate_expr(node.then_branch)
+        
+        cond_var = f"_cond_{self.temp_counter}"
+        result_var = f"_result_{self.temp_counter}"
+        self.temp_counter += 1
+        
+        if node.else_branch:
+            else_branch = self._generate_expr(node.else_branch)
+            return f"""({{
+        LispObject* {cond_var} = {cond};
+        LispObject* {result_var};
+        if ({cond_var} != LISP_NIL) {{
+            {result_var} = {then_branch};
+        }} else {{
+            {result_var} = {else_branch};
+        }}
+        {result_var};
+    }})"""
+        else:
+            return f"""({{
+        LispObject* {cond_var} = {cond};
+        LispObject* {result_var};
+        if ({cond_var} != LISP_NIL) {{
+            {result_var} = {then_branch};
+        }} else {{
+            {result_var} = LISP_NIL;
+        }}
+        {result_var};
+    }})"""

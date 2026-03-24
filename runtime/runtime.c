@@ -138,3 +138,33 @@ LispObject* lisp_print(LispObject* obj) {
     printf("\n");
     return obj;
 }
+
+LispObject* lisp_gt(LispObject* a, LispObject* b) {
+    double da = to_double(a);
+    double db = to_double(b);
+    return make_boolean(da > db);
+}
+
+LispObject* lisp_ge(LispObject* a, LispObject* b) {
+    double da = to_double(a);
+    double db = to_double(b);
+    return make_boolean(da >= db);
+}
+
+LispObject* lisp_lt(LispObject* a, LispObject* b) {
+    double da = to_double(a);
+    double db = to_double(b);
+    return make_boolean(da < db);
+}
+
+LispObject* lisp_le(LispObject* a, LispObject* b) {
+    double da = to_double(a);
+    double db = to_double(b);
+    return make_boolean(da <= db);
+}
+
+LispObject* lisp_eq(LispObject* a, LispObject* b) {
+    double da = to_double(a);
+    double db = to_double(b);
+    return make_boolean(da == db);
+}
