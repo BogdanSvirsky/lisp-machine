@@ -1,5 +1,5 @@
 from lexer.tokens import *
-from typing import Optional, Sequence, Iterator
+from typing import Sequence
 from .ast import *
 
 
@@ -7,72 +7,73 @@ class ParseException(Exception):
     pass
 
 
-class InvalidArgumentsCount(Exception):
-    pass
-
-
-BINARY_OPERATORS: list[str] = [
-    '+', '-', '/', '*', '<', '>', '==', '<=', '>=']
-
-
-def parse(tokens: Sequence[Token]) -> list[ASTNode]:
-    roots = []
-    iterator = iter(tokens)
-
-    while True:
-        try:
-            token = next(iterator)
-        except StopIteration:
-            break
-
-        if not isinstance(token, LParen):
-            raise ParseException()
-        tokens_list = _convert_to_list(iterator)
-        roots.append(_parse_list(tokens_list))
-
-    return roots
-
-
-def _convert_to_list(iterator: Iterator[Token]) -> list[Token | list]:
-    result = []
-    while True:
-        try:
-            token = next(iterator)
-        except StopIteration:
-            raise ParseException()
-
-
-: q
-: q
-        if isinstance(token, RParen):
-            break
+class Parser:
+    def __init__(self):
+        self.tokens: list[Token] = []
+        self.pos: int = 0
+    
+    def parse(self, tokens: Sequence[Token]) -> ASTProgram:
+        self.tokens = list(tokens)
+        self.pos = 0
+        expressions = []
+        
+        while self.pos < len(self.tokens):
+            token = self._peek()
+            
+            if not isinstance(token, LParen):
+                raise ParseException(f"Expected '(', got {type(token).__name__}")
+            
+            expr = self._parse_expr()
+            expressions.append(expr)
+        
+        return ASTProgram(expressions)    
+    def _parse_expr(self) -> ASTNode:
+        token = self._peek()
+        
         if isinstance(token, LParen):
-            result.append(_convert_to_list(iterator))
+            return self._parse_list()
+        elif isinstance(token, Number):
+            self._advance()
+            return ASTLiteral(token.value)
+        elif isinstance(token, String):
+            self._advance()
+            return ASTLiteral(token.value)
+        elif isinstance(token, Boolean):
+            self._advance()
+            return ASTLiteral(token.value)
+        elif isinstance(token, Symbol):
+            self._advance()
+            return ASTSymbol(token.value)
         else:
-            result.append(token)
-
-    return result
-
-
-def _parse_list(tokens: list[Token | list]) -> ASTNode:
-    if len(tokens) == 0:
-        raise ParseException()
-
-    if isinstance(tokens[0], Symbol):
-        if tokens[0].value in BINARY_OPERATORS:
-            if len(tokens) == 3:
-                return ASTBinaryOp(tokens[0].value, _parse_list(tokens[1]) if isinstance(tokens[1], list) else _parse_literal(tokens[1], _parse_list(tokens[1]) if isinstance(tokens[1], list) else _parse_literal(tokens[1]))
-            else:
-                raise InvalidArgumentsCount()
-
-
-
-def _parse_literal(token: Token) -> ASTNumber | ASTBoolean | ASTString:
-    if isinstance(token, Number):
-        return ASTNumber(token.value)
-    elif isinstance(token, String):
-        return ASTString(token.value)
-    elif isinstance(token, Boolean):
-        return ASTBoolean(token.value)
-    else:
-        raise ParseException()
+            raise ParseException(f"Unexpected token: {token}")
+    
+    def _parse_list(self) -> ASTNode:
+        self._advance()
+        
+        # Пустой список  не поддерживаем 
+        if isinstance(self._peek(), RParen):
+            self._advance()
+            raise ParseException("Empty list not supported yet")
+        
+        first = self._parse_expr()
+        
+        if not isinstance(first, ASTSymbol):
+            raise ParseException("First element of list must be a symbol (function name)")
+        
+        args = []
+        while not isinstance(self._peek(), RParen):
+            args.append(self._parse_expr())
+        
+        self._advance()
+        
+        return ASTCall(function=first, args=args)
+    
+    def _peek(self) -> Token:
+        if self.pos >= len(self.tokens):
+            raise ParseException("Unexpected end of input")
+        return self.tokens[self.pos]
+    
+    def _advance(self) -> Token:
+        token = self._peek()
+        self.pos += 1
+        return token

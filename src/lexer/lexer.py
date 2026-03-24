@@ -13,27 +13,56 @@ class Lexer:
         tokens: list[Token] = []
 
         self._current_token = ''
-        for line in text.readlines():
-            for symb in line:
-                if re.match(r'\s', symb): 
-                    token = self._process_current_token()
-                    if token:
-                        tokens.append(token)
-                    continue
+        content = text.read()
+        i = 0
+        length = len(content)
 
-                if symb == '(' or symb == ')':
-                    token = self._process_current_token()
-                    if token:
-                        tokens.append(token)
-                    tokens.append(LParen() if symb == '(' else RParen())
-                else:
-                    self._current_token += symb
+        while i < length:
+            symb = content[i]
+            
+            if re.match(r'\s', symb):
+                token = self._process_current_token()
+                if token:
+                    tokens.append(token)
+                i += 1
+                continue
+
+            if symb == '(' or symb == ')':
+                token = self._process_current_token()
+                if token:
+                    tokens.append(token)
+                tokens.append(LParen() if symb == '(' else RParen())
+                i += 1
+                continue
+            
+            if symb == '"':
+                token = self._process_current_token()
+                if token:
+                    tokens.append(token)
+                
+                end = content.find('"', i + 1)
+                if end == -1:
+                    raise Exception("Unclosed string")
+                
+                self._current_token = content[i:end + 1]
+                token = self._process_current_token()
+                if token:
+                    tokens.append(token)
+                i = end + 1
+                continue
+            
+            self._current_token += symb
+            i += 1
+
+        token = self._process_current_token()
+        if token:
+            tokens.append(token)
 
         return tokens
 
     def _process_current_token(self) -> Token | None:
         if self._current_token == '':
-            return
+            return None
 
         token = None
         try:
@@ -46,7 +75,7 @@ class Lexer:
 
         if not token:
             if re.match(STRING_PATTERN, self._current_token):
-                token = String(self._current_token)
+                token = String(self._current_token[1:-1])
             elif self._current_token == 'nil' or self._current_token == 't':
                 token = Boolean(self._current_token == 't')
             else:
