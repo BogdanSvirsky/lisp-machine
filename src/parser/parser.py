@@ -66,7 +66,9 @@ class Parser:
             return self._parse_if()
         elif first.name == 'defun':
             return self._parse_defun()
-        
+        elif first.name == 'let':
+            return self._parse_let()
+
         args = []
         while not isinstance(self._peek(), RParen):
             args.append(self._parse_expr())
@@ -122,6 +124,41 @@ class Parser:
         self._advance()
         
         return ASTDefun(name=name, params=params, body=body)
+    
+    
+    def _parse_let(self) -> ASTLet:
+        if not isinstance(self._peek(), LParen):
+            raise ParseException("Expected bindings list")
+        self._advance()
+        
+        bindings = []
+        while not isinstance(self._peek(), RParen):
+            if not isinstance(self._peek(), LParen):
+                raise ParseException("Expected binding pair")
+            self._advance()
+            
+            var_token = self._peek()
+            if not isinstance(var_token, Symbol):
+                raise ParseException("Expected variable name")
+            self._advance()
+            
+            val_expr = self._parse_expr()
+            
+            if not isinstance(self._peek(), RParen):
+                raise ParseException("Expected ')'")
+            self._advance()
+            
+            bindings.append((var_token.value, val_expr))
+        
+        self._advance()
+        
+        body = self._parse_expr()
+        
+        if not isinstance(self._peek(), RParen):
+            raise ParseException("Expected ')'")
+        self._advance()
+        
+        return ASTLet(bindings=bindings, body=body)
     
     def _peek(self) -> Token:
         if self.pos >= len(self.tokens):

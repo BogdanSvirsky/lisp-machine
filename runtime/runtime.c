@@ -382,3 +382,20 @@ LispObject* lisp_null(LispObject* args) {
     LispObject* obj = get_arg(0, args);
     return make_boolean(obj == LISP_NIL);
 }
+
+void lisp_init(void) {
+    lisp_define("+", lisp_add);
+    lisp_define("-", lisp_sub);
+    lisp_define("*", lisp_mul);
+    lisp_define("/", lisp_div);
+    lisp_define(">", lisp_gt);
+    lisp_define(">=", lisp_ge);
+    lisp_define("<", lisp_lt);
+    lisp_define("<=", lisp_le);
+    lisp_define("==", lisp_eq);
+    lisp_define("print", lisp_print);
+    lisp_define("car", lisp_car);
+    lisp_define("cdr", lisp_cdr);
+    lisp_define("cons", lisp_cons);
+    lisp_define("null?", lisp_null);
+}

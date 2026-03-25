@@ -73,4 +73,6 @@ LispObject* lisp_cdr(LispObject* args);
 LispObject* lisp_cons(LispObject* args);
 LispObject* lisp_null(LispObject* args);
 
+void lisp_init(void);
+
 #endif

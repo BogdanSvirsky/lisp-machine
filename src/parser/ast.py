@@ -34,5 +34,10 @@ class ASTDefun(ASTNode):
     body: ASTNode
 
 @dataclass
+class ASTLet(ASTNode):
+    bindings: list[tuple[str, ASTNode]]
+    body: ASTNode
+
+@dataclass
 class ASTProgram(ASTNode):
     expressions: list[ASTNode]

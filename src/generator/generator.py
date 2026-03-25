@@ -1,6 +1,4 @@
-# src/generator/generator.py
 from parser.ast import *
-
 
 class CCodeGenerator:
     def __init__(self):
@@ -22,22 +20,8 @@ class CCodeGenerator:
             code.append('\n')
         
         code.append('int main() {\n')
-        
-        code.append('    lisp_define("+", lisp_add);\n')
-        code.append('    lisp_define("-", lisp_sub);\n')
-        code.append('    lisp_define("*", lisp_mul);\n')
-        code.append('    lisp_define("/", lisp_div);\n')
-        code.append('    lisp_define(">", lisp_gt);\n')
-        code.append('    lisp_define(">=", lisp_ge);\n')
-        code.append('    lisp_define("<", lisp_lt);\n')
-        code.append('    lisp_define("<=", lisp_le);\n')
-        code.append('    lisp_define("==", lisp_eq);\n')
-        code.append('    lisp_define("print", lisp_print);\n')
-        code.append('    lisp_define("car", lisp_car);\n')
-        code.append('    lisp_define("cdr", lisp_cdr);\n')
-        code.append('    lisp_define("cons", lisp_cons);\n')
-        code.append('    lisp_define("null?", lisp_null);\n')
-                
+        code.append('    lisp_init();\n\n') 
+                   
         for expr in ast.expressions:
             if isinstance(expr, ASTDefun):
                 code.append(f'    lisp_define("{expr.name}", {expr.name});\n')
@@ -77,6 +61,8 @@ class CCodeGenerator:
             return self._generate_call(node)
         elif isinstance(node, ASTIf):
             return self._generate_if(node)
+        elif isinstance(node, ASTLet):
+            return self._generate_let(node)
         else:
             raise NotImplementedError(f"Unknown node: {type(node)}")
     
@@ -94,7 +80,6 @@ class CCodeGenerator:
             raise NotImplementedError(f"Unknown literal: {type(node.value)}")
     
     def _generate_symbol(self, node: ASTSymbol) -> str:
-        """Символ — это переменная (параметр функции)"""
         return node.name
     
     def _generate_call(self, node: ASTCall) -> str:
@@ -162,3 +147,17 @@ class CCodeGenerator:
         }}
         {result_var};
     }})"""
+    
+    def _generate_let(self, node: ASTLet) -> str:
+        code = []
+        code.append('({')
+        
+        for name, value in node.bindings:
+            val_code = self._generate_expr(value)
+            code.append(f'        LispObject* {name} = {val_code};')
+        
+        body_code = self._generate_expr(node.body)
+        code.append(f'        {body_code};')
+        code.append('    })')
+        
+        return '\n'.join(code)
