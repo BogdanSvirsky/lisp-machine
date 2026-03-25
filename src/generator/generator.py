@@ -32,90 +32,61 @@ class CCodeGenerator:
             raise NotImplementedError(f"Unknown node: {type(node)}")
     
     def _generate_literal(self, node: ASTLiteral) -> str:
+        # print(f"DEBUG: Generating literal: {node.value}, type: {type(node.value)}")
+        if isinstance(node.value, bool):
+            return 'LISP_T' if node.value else 'LISP_NIL'
         if isinstance(node.value, int):
             return f'make_integer({node.value})'
-        elif isinstance(node.value, float):
-            return f'make_float({node.value})'
         elif isinstance(node.value, float):
             return f'make_float({node.value})'
         elif isinstance(node.value, str):
             escaped = node.value.replace('\\', '\\\\').replace('"', '\\"')
             return f'make_string("{escaped}")'
-        elif isinstance(node.value, bool):
-            return 'LISP_T' if node.value else 'LISP_NIL'
         else:
             raise NotImplementedError(f"Unknown literal: {type(node.value)}")
     
     def _generate_call(self, node: ASTCall) -> str:
         func_name = node.function.name
         
-        arg_codes = [self._generate_expr(arg) for arg in node.args]
+        if not node.args:
+            args_list = 'LISP_NIL'
+        else:
+            args_list = 'LISP_NIL'
+            for arg in reversed(node.args):
+                arg_code = self._generate_expr(arg)
+                args_list = f'make_cons({arg_code}, {args_list})'
         
         if func_name == 'print':
-            if len(arg_codes) != 1:
-                raise Exception(f"print expects 1 argument, got {len(arg_codes)}")
-            return f'lisp_print({arg_codes[0]})'
-        
+            return f'lisp_print({args_list})'
         elif func_name == '+':
-            if len(arg_codes) < 2:
-                raise Exception(f"+ expects at least 2 arguments, got {len(arg_codes)}")
-            result = arg_codes[0]
-            for arg in arg_codes[1:]:
-                result = f'lisp_add({result}, {arg})'
-            return result
-        
+            return f'lisp_add({args_list})'
         elif func_name == '-':
-            if len(arg_codes) < 2:
-                raise Exception(f"- expects at least 2 arguments, got {len(arg_codes)}")
-            result = arg_codes[0]
-            for arg in arg_codes[1:]:
-                result = f'lisp_sub({result}, {arg})'
-            return result
-        
+            return f'lisp_sub({args_list})'
         elif func_name == '*':
-            if len(arg_codes) < 2:
-                raise Exception(f"* expects at least 2 arguments, got {len(arg_codes)}")
-            result = arg_codes[0]
-            for arg in arg_codes[1:]:
-                result = f'lisp_mul({result}, {arg})'
-            return result
-        
+            return f'lisp_mul({args_list})'
         elif func_name == '/':
-            if len(arg_codes) < 2:
-                raise Exception(f"/ expects at least 2 arguments, got {len(arg_codes)}")
-            result = arg_codes[0]
-            for arg in arg_codes[1:]:
-                result = f'lisp_div({result}, {arg})'
-            return result
-        
+            return f'lisp_div({args_list})'
         elif func_name == '>':
-            if len(arg_codes) != 2:
-                raise Exception(f"> expects 2 arguments, got {len(arg_codes)}")
-            return f'lisp_gt({arg_codes[0]}, {arg_codes[1]})'
-        
+            return f'lisp_gt({args_list})'
         elif func_name == '>=':
-            if len(arg_codes) != 2:
-                raise Exception(f">= expects 2 arguments, got {len(arg_codes)}")
-            return f'lisp_ge({arg_codes[0]}, {arg_codes[1]})'
-        
+            return f'lisp_ge({args_list})'
         elif func_name == '<':
-            if len(arg_codes) != 2:
-                raise Exception(f"< expects 2 arguments, got {len(arg_codes)}")
-            return f'lisp_lt({arg_codes[0]}, {arg_codes[1]})'
-        
+            return f'lisp_lt({args_list})'
         elif func_name == '<=':
-            if len(arg_codes) != 2:
-                raise Exception(f"<= expects 2 arguments, got {len(arg_codes)}")
-            return f'lisp_le({arg_codes[0]}, {arg_codes[1]})'
-        
+            return f'lisp_le({args_list})'
         elif func_name == '==':
-            if len(arg_codes) != 2:
-                raise Exception(f"== expects 2 arguments, got {len(arg_codes)}")
-            return f'lisp_eq({arg_codes[0]}, {arg_codes[1]})'
-        
+            return f'lisp_eq({args_list})'
+        elif func_name == 'car':
+            return f'lisp_car({args_list})'
+        elif func_name == 'cdr':
+            return f'lisp_cdr({args_list})'
+        elif func_name == 'cons':
+            return f'lisp_cons({args_list})'
+        elif func_name == 'null?':
+            return f'lisp_null({args_list})'
         else:
             raise Exception(f"Unknown built-in function: {func_name}")
-        
+    
     def _generate_if(self, node: ASTIf) -> str:
         cond = self._generate_expr(node.condition)
         then_branch = self._generate_expr(node.then_branch)

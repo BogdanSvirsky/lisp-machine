@@ -41,6 +41,7 @@ class Parser:
             return ASTLiteral(token.value)
         elif isinstance(token, Boolean):
             self._advance()
+            # print(f"DEBUG: Parsing Boolean with value {token.value}")
             return ASTLiteral(token.value)
         elif isinstance(token, Symbol):
             self._advance()

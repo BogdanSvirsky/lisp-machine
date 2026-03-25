@@ -1,8 +1,9 @@
 #include "runtime.h"
 
 LispObject LISP_NIL_OBJ = {
-    .type = TYPE_BOOLEAN,
-    .value.bool_val = 0
+    .type = TYPE_CONS,
+    .value.cons.car = NULL,
+    .value.cons.cdr = NULL
 };
 
 LispObject LISP_T_OBJ = {
@@ -52,7 +53,69 @@ LispObject* make_boolean(int b) {
     return b ? LISP_T : LISP_NIL;
 }
 
-static double to_double(LispObject* obj) {
+LispObject* make_cons(LispObject* car, LispObject* cdr) {
+    LispObject* obj = malloc(sizeof(LispObject));
+    if (!obj) {
+        fprintf(stderr, "Error: memory allocation failed\n");
+        exit(1);
+    }
+    obj->type = TYPE_CONS;
+    obj->value.cons.car = car;
+    obj->value.cons.cdr = cdr;
+    return obj;
+}
+
+LispObject* car(LispObject* obj) {
+    if (obj == LISP_NIL) {
+        fprintf(stderr, "Error: car of nil\n");
+        exit(1);
+    }
+    if (obj->type != TYPE_CONS) {
+        fprintf(stderr, "Error: car called on non-cons\n");
+        exit(1);
+    }
+    return obj->value.cons.car;
+}
+
+LispObject* cdr(LispObject* obj) {
+    if (obj == LISP_NIL) {
+        fprintf(stderr, "Error: cdr of nil\n");
+        exit(1);
+    }
+    if (obj->type != TYPE_CONS) {
+        fprintf(stderr, "Error: cdr called on non-cons\n");
+        exit(1);
+    }
+    return obj->value.cons.cdr;
+}
+
+int length(LispObject* list) {
+    int len = 0;
+    LispObject* current = list;
+    while (current != LISP_NIL && current->type == TYPE_CONS) {
+        len++;
+        current = cdr(current);
+    }
+    return len;
+}
+
+LispObject* get_arg(int n, LispObject* args) {
+    LispObject* current = args;
+    for (int i = 0; i < n; i++) {
+        if (current == LISP_NIL || current->type != TYPE_CONS) {
+            fprintf(stderr, "Error: not enough arguments (need %d)\n", n + 1);
+            exit(1);
+        }
+        current = cdr(current);
+    }
+    if (current == LISP_NIL || current->type != TYPE_CONS) {
+        fprintf(stderr, "Error: argument %d not found\n", n);
+        exit(1);
+    }
+    return car(current);
+}
+
+double to_double(LispObject* obj) {
     if (obj->type == TYPE_INT) {
         return (double)obj->value.int_val;
     } else if (obj->type == TYPE_FLOAT) {
@@ -63,57 +126,148 @@ static double to_double(LispObject* obj) {
     }
 }
 
-LispObject* lisp_add(LispObject* a, LispObject* b) {
-    double da = to_double(a);
-    double db = to_double(b);
-    double result = da + db;
+LispObject* lisp_add(LispObject* args) {
+    if (args == LISP_NIL) return make_integer(0);
     
-    if (a->type == TYPE_INT && b->type == TYPE_INT && result == (int)result) {
-        return make_integer((int)result);
+    double sum = 0.0;
+    int is_int = 1;
+    LispObject* current = args;
+    
+    while (current != LISP_NIL && current->type == TYPE_CONS) {
+        LispObject* arg = car(current);
+        sum += to_double(arg);
+        if (arg->type != TYPE_INT) is_int = 0;
+        current = cdr(current);
     }
-    return make_float(result);
+    
+    if (is_int && sum == (int)sum) {
+        return make_integer((int)sum);
+    }
+    return make_float(sum);
 }
 
-LispObject* lisp_sub(LispObject* a, LispObject* b) {
-    double da = to_double(a);
-    double db = to_double(b);
-    double result = da - db;
-    
-    if (a->type == TYPE_INT && b->type == TYPE_INT && result == (int)result) {
-        return make_integer((int)result);
-    }
-    return make_float(result);
-}
-
-LispObject* lisp_mul(LispObject* a, LispObject* b) {
-    double da = to_double(a);
-    double db = to_double(b);
-    double result = da * db;
-    
-    if (a->type == TYPE_INT && b->type == TYPE_INT && result == (int)result) {
-        return make_integer((int)result);
-    }
-    return make_float(result);
-}
-
-LispObject* lisp_div(LispObject* a, LispObject* b) {
-    double da = to_double(a);
-    double db = to_double(b);
-    
-    if (db == 0.0) {
-        fprintf(stderr, "Error: division by zero\n");
+LispObject* lisp_sub(LispObject* args) {
+    int argc = length(args);
+    if (argc == 0) {
+        fprintf(stderr, "Error: - expects at least 1 argument\n");
         exit(1);
     }
     
-    double result = da / db;
+    double result = to_double(get_arg(0, args));
+    int is_int = (get_arg(0, args)->type == TYPE_INT);
     
-    if (a->type == TYPE_INT && b->type == TYPE_INT && result == (int)result) {
+    for (int i = 1; i < argc; i++) {
+        LispObject* arg = get_arg(i, args);
+        result -= to_double(arg);
+        if (arg->type != TYPE_INT) is_int = 0;
+    }
+    
+    if (is_int && result == (int)result) {
         return make_integer((int)result);
     }
     return make_float(result);
 }
 
-LispObject* lisp_print(LispObject* obj) {
+LispObject* lisp_mul(LispObject* args) {
+    if (args == LISP_NIL) return make_integer(1);
+    
+    double product = 1.0;
+    int is_int = 1;
+    LispObject* current = args;
+    
+    while (current != LISP_NIL && current->type == TYPE_CONS) {
+        LispObject* arg = car(current);
+        product *= to_double(arg);
+        if (arg->type != TYPE_INT) is_int = 0;
+        current = cdr(current);
+    }
+    
+    if (is_int && product == (int)product) {
+        return make_integer((int)product);
+    }
+    return make_float(product);
+}
+
+LispObject* lisp_div(LispObject* args) {
+    int argc = length(args);
+    if (argc == 0) {
+        fprintf(stderr, "Error: / expects at least 1 argument\n");
+        exit(1);
+    }
+    
+    double result = to_double(get_arg(0, args));
+    int is_int = (get_arg(0, args)->type == TYPE_INT);
+    
+    for (int i = 1; i < argc; i++) {
+        LispObject* arg = get_arg(i, args);
+        double divisor = to_double(arg);
+        if (divisor == 0.0) {
+            fprintf(stderr, "Error: division by zero\n");
+            exit(1);
+        }
+        result /= divisor;
+        if (arg->type != TYPE_INT) is_int = 0;
+    }
+    
+    if (is_int && result == (int)result) {
+        return make_integer((int)result);
+    }
+    return make_float(result);
+}
+
+LispObject* lisp_gt(LispObject* args) {
+    if (length(args) != 2) {
+        fprintf(stderr, "Error: > expects 2 arguments\n");
+        exit(1);
+    }
+    double a = to_double(get_arg(0, args));
+    double b = to_double(get_arg(1, args));
+    return make_boolean(a > b);
+}
+
+LispObject* lisp_ge(LispObject* args) {
+    if (length(args) != 2) {
+        fprintf(stderr, "Error: >= expects 2 arguments\n");
+        exit(1);
+    }
+    double a = to_double(get_arg(0, args));
+    double b = to_double(get_arg(1, args));
+    return make_boolean(a >= b);
+}
+
+LispObject* lisp_lt(LispObject* args) {
+    if (length(args) != 2) {
+        fprintf(stderr, "Error: < expects 2 arguments\n");
+        exit(1);
+    }
+    double a = to_double(get_arg(0, args));
+    double b = to_double(get_arg(1, args));
+    return make_boolean(a < b);
+}
+
+LispObject* lisp_le(LispObject* args) {
+    if (length(args) != 2) {
+        fprintf(stderr, "Error: <= expects 2 arguments\n");
+        exit(1);
+    }
+    double a = to_double(get_arg(0, args));
+    double b = to_double(get_arg(1, args));
+    return make_boolean(a <= b);
+}
+
+LispObject* lisp_eq(LispObject* args) {
+    if (length(args) != 2) {
+        fprintf(stderr, "Error: == expects 2 arguments\n");
+        exit(1);
+    }
+    double a = to_double(get_arg(0, args));
+    double b = to_double(get_arg(1, args));
+    return make_boolean(a == b);
+}
+
+LispObject* lisp_print(LispObject* args) {
+    LispObject* obj = get_arg(0, args);
+    
     switch (obj->type) {
         case TYPE_INT:
             printf("%d", obj->value.int_val);
@@ -131,6 +285,18 @@ LispObject* lisp_print(LispObject* obj) {
         case TYPE_BOOLEAN:
             printf("%s", obj->value.bool_val ? "t" : "nil");
             break;
+        case TYPE_CONS:
+            printf("(");
+            LispObject* current = obj;
+            while (current != LISP_NIL && current->type == TYPE_CONS) {
+                lisp_print(make_cons(car(current), LISP_NIL));
+                current = cdr(current);
+                if (current != LISP_NIL && current->type == TYPE_CONS) {
+                    printf(" ");
+                }
+            }
+            printf(")");
+            break;
         default:
             printf("#<unknown>");
             break;
@@ -139,32 +305,23 @@ LispObject* lisp_print(LispObject* obj) {
     return obj;
 }
 
-LispObject* lisp_gt(LispObject* a, LispObject* b) {
-    double da = to_double(a);
-    double db = to_double(b);
-    return make_boolean(da > db);
+LispObject* lisp_car(LispObject* args) {
+    LispObject* list = get_arg(0, args);
+    return car(list);
 }
 
-LispObject* lisp_ge(LispObject* a, LispObject* b) {
-    double da = to_double(a);
-    double db = to_double(b);
-    return make_boolean(da >= db);
+LispObject* lisp_cdr(LispObject* args) {
+    LispObject* list = get_arg(0, args);
+    return cdr(list);
 }
 
-LispObject* lisp_lt(LispObject* a, LispObject* b) {
-    double da = to_double(a);
-    double db = to_double(b);
-    return make_boolean(da < db);
+LispObject* lisp_cons(LispObject* args) {
+    LispObject* a = get_arg(0, args);
+    LispObject* b = get_arg(1, args);
+    return make_cons(a, b);
 }
 
-LispObject* lisp_le(LispObject* a, LispObject* b) {
-    double da = to_double(a);
-    double db = to_double(b);
-    return make_boolean(da <= db);
-}
-
-LispObject* lisp_eq(LispObject* a, LispObject* b) {
-    double da = to_double(a);
-    double db = to_double(b);
-    return make_boolean(da == db);
+LispObject* lisp_null(LispObject* args) {
+    LispObject* obj = get_arg(0, args);
+    return make_boolean(obj == LISP_NIL);
 }

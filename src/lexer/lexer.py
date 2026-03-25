@@ -77,6 +77,7 @@ class Lexer:
             if re.match(STRING_PATTERN, self._current_token):
                 token = String(self._current_token[1:-1])
             elif self._current_token == 'nil' or self._current_token == 't':
+                # print(f"DEBUG: Creating Boolean for '{self._current_token}'")
                 token = Boolean(self._current_token == 't')
             else:
                 token = Symbol(self._current_token)
