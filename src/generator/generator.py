@@ -1,29 +1,78 @@
+# src/generator/generator.py
 from parser.ast import *
 
 
 class CCodeGenerator:
     def __init__(self):
         self.temp_counter = 0
+        self.functions = []
     
     def generate(self, ast: ASTProgram) -> str:
         code = []
         
         code.append('#include "runtime/runtime.h"\n\n')
         
+        for expr in ast.expressions:
+            if isinstance(expr, ASTDefun):
+                func_code = self._generate_defun(expr)
+                self.functions.append(func_code)
+        
+        for func_code in self.functions:
+            code.append(func_code)
+            code.append('\n')
+        
         code.append('int main() {\n')
         
+        code.append('    lisp_define("+", lisp_add);\n')
+        code.append('    lisp_define("-", lisp_sub);\n')
+        code.append('    lisp_define("*", lisp_mul);\n')
+        code.append('    lisp_define("/", lisp_div);\n')
+        code.append('    lisp_define(">", lisp_gt);\n')
+        code.append('    lisp_define(">=", lisp_ge);\n')
+        code.append('    lisp_define("<", lisp_lt);\n')
+        code.append('    lisp_define("<=", lisp_le);\n')
+        code.append('    lisp_define("==", lisp_eq);\n')
+        code.append('    lisp_define("print", lisp_print);\n')
+        code.append('    lisp_define("car", lisp_car);\n')
+        code.append('    lisp_define("cdr", lisp_cdr);\n')
+        code.append('    lisp_define("cons", lisp_cons);\n')
+        code.append('    lisp_define("null?", lisp_null);\n')
+                
         for expr in ast.expressions:
-            c_expr = self._generate_expr(expr)
-            code.append(f'    {c_expr};\n')
+            if isinstance(expr, ASTDefun):
+                code.append(f'    lisp_define("{expr.name}", {expr.name});\n')
+        
+        code.append('\n')
+        
+        for expr in ast.expressions:
+            if not isinstance(expr, ASTDefun):
+                c_expr = self._generate_expr(expr)
+                code.append(f'    {c_expr};\n')
         
         code.append('    return 0;\n')
         code.append('}\n')
         
         return ''.join(code)
     
+    def _generate_defun(self, node: ASTDefun) -> str:
+        code = []
+        
+        code.append(f'LispObject* {node.name}(LispObject* args) {{')
+        
+        for i, param in enumerate(node.params):
+            code.append(f'    LispObject* {param} = get_arg({i}, args);')
+        
+        body_code = self._generate_expr(node.body)
+        code.append(f'    return {body_code};')
+        code.append('}\n')
+        
+        return '\n'.join(code)
+    
     def _generate_expr(self, node: ASTNode) -> str:
         if isinstance(node, ASTLiteral):
             return self._generate_literal(node)
+        elif isinstance(node, ASTSymbol):
+            return self._generate_symbol(node)
         elif isinstance(node, ASTCall):
             return self._generate_call(node)
         elif isinstance(node, ASTIf):
@@ -32,10 +81,9 @@ class CCodeGenerator:
             raise NotImplementedError(f"Unknown node: {type(node)}")
     
     def _generate_literal(self, node: ASTLiteral) -> str:
-        # print(f"DEBUG: Generating literal: {node.value}, type: {type(node.value)}")
         if isinstance(node.value, bool):
             return 'LISP_T' if node.value else 'LISP_NIL'
-        if isinstance(node.value, int):
+        elif isinstance(node.value, int):
             return f'make_integer({node.value})'
         elif isinstance(node.value, float):
             return f'make_float({node.value})'
@@ -44,6 +92,10 @@ class CCodeGenerator:
             return f'make_string("{escaped}")'
         else:
             raise NotImplementedError(f"Unknown literal: {type(node.value)}")
+    
+    def _generate_symbol(self, node: ASTSymbol) -> str:
+        """Символ — это переменная (параметр функции)"""
+        return node.name
     
     def _generate_call(self, node: ASTCall) -> str:
         func_name = node.function.name
@@ -56,37 +108,29 @@ class CCodeGenerator:
                 arg_code = self._generate_expr(arg)
                 args_list = f'make_cons({arg_code}, {args_list})'
         
-        if func_name == 'print':
-            return f'lisp_print({args_list})'
-        elif func_name == '+':
-            return f'lisp_add({args_list})'
-        elif func_name == '-':
-            return f'lisp_sub({args_list})'
-        elif func_name == '*':
-            return f'lisp_mul({args_list})'
-        elif func_name == '/':
-            return f'lisp_div({args_list})'
-        elif func_name == '>':
-            return f'lisp_gt({args_list})'
-        elif func_name == '>=':
-            return f'lisp_ge({args_list})'
-        elif func_name == '<':
-            return f'lisp_lt({args_list})'
-        elif func_name == '<=':
-            return f'lisp_le({args_list})'
-        elif func_name == '==':
-            return f'lisp_eq({args_list})'
-        elif func_name == 'car':
-            return f'lisp_car({args_list})'
-        elif func_name == 'cdr':
-            return f'lisp_cdr({args_list})'
-        elif func_name == 'cons':
-            return f'lisp_cons({args_list})'
-        elif func_name == 'null?':
-            return f'lisp_null({args_list})'
+        builtins_map = {
+            '+': 'add',
+            '-': 'sub',
+            '*': 'mul',
+            '/': 'div',
+            '>': 'gt',
+            '>=': 'ge',
+            '<': 'lt',
+            '<=': 'le',
+            '==': 'eq',
+            'print': 'print',
+            'car': 'car',
+            'cdr': 'cdr',
+            'cons': 'cons',
+            'null?': 'null'
+        }
+        
+        if func_name in builtins_map:
+            return f'lisp_{builtins_map[func_name]}({args_list})'
         else:
-            raise Exception(f"Unknown built-in function: {func_name}")
-    
+            apply_args = f'make_cons(lisp_lookup("{func_name}"), make_cons({args_list}, LISP_NIL))'
+            return f'lisp_apply({apply_args})'
+            
     def _generate_if(self, node: ASTIf) -> str:
         cond = self._generate_expr(node.condition)
         then_branch = self._generate_expr(node.then_branch)
@@ -108,7 +152,7 @@ class CCodeGenerator:
         {result_var};
     }})"""
         else:
-            return f"""({{
+                return f"""({{
         LispObject* {cond_var} = {cond};
         LispObject* {result_var};
         if ({cond_var} != LISP_NIL) {{

@@ -11,7 +11,9 @@ typedef enum {
     TYPE_FLOAT,
     TYPE_STRING,
     TYPE_BOOLEAN,
-    TYPE_CONS
+    TYPE_CONS,
+    TYPE_FUNCTION,
+    TYPE_SYMBOL
 } LispType;
 
 typedef struct LispObject {
@@ -25,6 +27,8 @@ typedef struct LispObject {
             struct LispObject* car;
             struct LispObject* cdr;
         } cons;
+        struct LispObject* (*func_val)(struct LispObject*);
+        char* sym_val;
     } value;
 } LispObject;
 
@@ -38,12 +42,18 @@ LispObject* make_float(double f);
 LispObject* make_string(const char* str);
 LispObject* make_boolean(int b);
 LispObject* make_cons(LispObject* car, LispObject* cdr);
+LispObject* make_function(LispObject* (*func)(LispObject*));
+LispObject* make_symbol(const char* name);
 
 LispObject* car(LispObject* obj);
 LispObject* cdr(LispObject* obj);
 int length(LispObject* list);
 LispObject* get_arg(int n, LispObject* args);
 double to_double(LispObject* obj);
+
+void lisp_define(const char* name, LispObject* (*func)(LispObject*));
+LispObject* lisp_lookup(const char* name);
+LispObject* lisp_apply(LispObject* args);
 
 LispObject* lisp_add(LispObject* args);
 LispObject* lisp_sub(LispObject* args);

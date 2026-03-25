@@ -64,6 +64,8 @@ class Parser:
         
         if first.name == 'if':
             return self._parse_if()
+        elif first.name == 'defun':
+            return self._parse_defun()
         
         args = []
         while not isinstance(self._peek(), RParen):
@@ -74,7 +76,6 @@ class Parser:
         return ASTCall(function=first, args=args)
     
     def _parse_if(self) -> ASTIf:
-        """Парсит (if cond then else)"""
         condition = self._parse_expr()
         
         then_branch = self._parse_expr()
@@ -92,6 +93,35 @@ class Parser:
             then_branch=then_branch,
             else_branch=else_branch
         )
+        
+    def _parse_defun(self) -> ASTDefun:
+        name_token = self._peek()
+        if not isinstance(name_token, Symbol):
+            raise ParseException("Expected function name")
+        self._advance()
+        name = name_token.value
+        
+        if not isinstance(self._peek(), LParen):
+            raise ParseException("Expected parameter list")
+        self._advance()
+        
+        params = []
+        while not isinstance(self._peek(), RParen):
+            param_token = self._peek()
+            if not isinstance(param_token, Symbol):
+                raise ParseException("Expected parameter name")
+            params.append(param_token.value)
+            self._advance()
+        
+        self._advance()
+        
+        body = self._parse_expr()
+        
+        if not isinstance(self._peek(), RParen):
+            raise ParseException("Expected ')'")
+        self._advance()
+        
+        return ASTDefun(name=name, params=params, body=body)
     
     def _peek(self) -> Token:
         if self.pos >= len(self.tokens):

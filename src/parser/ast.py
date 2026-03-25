@@ -26,7 +26,12 @@ class ASTIf(ASTNode):
 class ASTCall(ASTNode):
     function: ASTSymbol
     args: list[ASTNode]
-
+    
+@dataclass
+class ASTDefun(ASTNode):
+    name: str
+    params: list[str]
+    body: ASTNode
 
 @dataclass
 class ASTProgram(ASTNode):

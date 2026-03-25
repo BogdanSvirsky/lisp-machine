@@ -65,6 +65,17 @@ LispObject* make_cons(LispObject* car, LispObject* cdr) {
     return obj;
 }
 
+LispObject* make_function(LispObject* (*func)(LispObject*)) {
+    LispObject* obj = malloc(sizeof(LispObject));
+    if (!obj) {
+        fprintf(stderr, "Error: memory allocation failed\n");
+        exit(1);
+    }
+    obj->type = TYPE_FUNCTION;
+    obj->value.func_val = func;
+    return obj;
+}
+
 LispObject* car(LispObject* obj) {
     if (obj == LISP_NIL) {
         fprintf(stderr, "Error: car of nil\n");
@@ -124,6 +135,42 @@ double to_double(LispObject* obj) {
         fprintf(stderr, "Error: expected number, got type %d\n", obj->type);
         exit(1);
     }
+}
+
+typedef struct {
+    char* name;
+    LispObject* (*func)(LispObject*);
+} FunctionEntry;
+
+static FunctionEntry function_table[100];
+static int function_count = 0;
+
+void lisp_define(const char* name, LispObject* (*func)(LispObject*)) {
+    function_table[function_count].name = strdup(name);
+    function_table[function_count].func = func;
+    function_count++;
+}
+
+LispObject* lisp_lookup(const char* name) {
+    for (int i = 0; i < function_count; i++) {
+        if (strcmp(function_table[i].name, name) == 0) {
+            return make_function(function_table[i].func);
+        }
+    }
+    return LISP_NIL;
+}
+
+LispObject* lisp_apply(LispObject* args) {
+    LispObject* fn_obj = get_arg(0, args);
+    LispObject* arg_list = get_arg(1, args);
+    
+    if (fn_obj->type != TYPE_FUNCTION) {
+        fprintf(stderr, "Error: apply expects a function, got type %d\n", fn_obj->type);
+        exit(1);
+    }
+    
+    LispObject* (*func)(LispObject*) = fn_obj->value.func_val;
+    return func(arg_list);
 }
 
 LispObject* lisp_add(LispObject* args) {
@@ -265,9 +312,7 @@ LispObject* lisp_eq(LispObject* args) {
     return make_boolean(a == b);
 }
 
-LispObject* lisp_print(LispObject* args) {
-    LispObject* obj = get_arg(0, args);
-    
+void print_object(LispObject* obj) {
     switch (obj->type) {
         case TYPE_INT:
             printf("%d", obj->value.int_val);
@@ -289,18 +334,30 @@ LispObject* lisp_print(LispObject* args) {
             printf("(");
             LispObject* current = obj;
             while (current != LISP_NIL && current->type == TYPE_CONS) {
-                lisp_print(make_cons(car(current), LISP_NIL));
+                print_object(car(current));
                 current = cdr(current);
                 if (current != LISP_NIL && current->type == TYPE_CONS) {
                     printf(" ");
                 }
             }
+            if (current != LISP_NIL) {
+                printf(" . ");
+                print_object(current);
+            }
             printf(")");
+            break;
+        case TYPE_FUNCTION:
+            printf("#<function>");
             break;
         default:
             printf("#<unknown>");
             break;
     }
+}
+
+LispObject* lisp_print(LispObject* args) {
+    LispObject* obj = get_arg(0, args);
+    print_object(obj);
     printf("\n");
     return obj;
 }
