@@ -14,7 +14,8 @@ class ASTLiteral(ASTNode):
 @dataclass
 class ASTSymbol(ASTNode):
     name: str
-    
+
+
 @dataclass
 class ASTIf(ASTNode):
     condition: ASTNode
@@ -26,17 +27,32 @@ class ASTIf(ASTNode):
 class ASTCall(ASTNode):
     function: ASTSymbol
     args: list[ASTNode]
-    
+
+
 @dataclass
 class ASTDefun(ASTNode):
     name: str
     params: list[str]
     body: ASTNode
 
+
+@dataclass
+class ASTMacro(ASTNode):
+    name: str
+    params: list[str]
+    body: ASTNode
+
+
 @dataclass
 class ASTLet(ASTNode):
     bindings: list[tuple[str, ASTNode]]
     body: ASTNode
+
+
+@dataclass
+class ASTUnquote(ASTNode):
+    name: str
+
 
 @dataclass
 class ASTProgram(ASTNode):

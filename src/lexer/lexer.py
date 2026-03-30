@@ -35,6 +35,22 @@ class Lexer:
                 i += 1
                 continue
             
+            if symb == '`':
+                token = self._process_current_token()
+                if token:
+                    tokens.append(token)
+                tokens.append(Backquote())
+                i += 1
+                continue
+            
+            if symb == ',':
+                token = self._process_current_token()
+                if token:
+                    tokens.append(token)
+                tokens.append(Unquote())
+                i += 1
+                continue
+            
             if symb == '"':
                 token = self._process_current_token()
                 if token:
