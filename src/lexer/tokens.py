@@ -35,3 +35,15 @@ class Boolean(Token):
 @dataclass
 class Symbol(Token):
     value: str
+
+
+class Backquote(Token):
+    pass
+
+
+class Unquote(Token):
+    pass
+
+
+class UnquoteSplicing(Token):
+    pass

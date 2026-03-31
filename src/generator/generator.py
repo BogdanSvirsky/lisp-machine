@@ -1,5 +1,6 @@
 from parser.ast import *
 
+
 class CCodeGenerator:
     def __init__(self):
         self.temp_counter = 0
@@ -9,44 +10,44 @@ class CCodeGenerator:
     
     def generate(self, ast: ASTProgram) -> str:
         code = []
-        
+
         code.append('#include "runtime/runtime.h"\n\n')
-        
+
         for expr in ast.expressions:
             if isinstance(expr, ASTDefun):
                 func_code = self._generate_defun(expr)
                 self.functions.append(func_code)
-        
+
         for func_code in self.functions:
             code.append(func_code)
             code.append('\n\n')
         
         code.append('int main() {\n')
-        code.append('    lisp_init();\n\n') 
-                   
+        code.append('    lisp_init();\n\n')
+
         for expr in ast.expressions:
             if isinstance(expr, ASTDefun):
                 code.append(f'    lisp_define("{expr.name}", {expr.name});\n')
-        
+
         code.append('\n')
-        
+
         for expr in ast.expressions:
             if not isinstance(expr, ASTDefun):
                 c_expr = self._generate_expr(expr, tail=False)
                 code.append(f'    {c_expr};\n')
-        
+
         code.append('    return 0;\n')
         code.append('}\n')
-        
+
         return ''.join(code)
-    
+
     def _generate_defun(self, node: ASTDefun) -> str:
         self.current_function = node.name
         self.current_params = node.params
         
         code = []
         code.append(f'LispObject* {node.name}(LispObject* args) {{')
-        
+
         for i, param in enumerate(node.params):
             code.append(f'    LispObject* {param} = get_arg({i}, args);')
         
@@ -71,10 +72,12 @@ class CCodeGenerator:
         elif isinstance(node, ASTIf):
             return self._generate_if(node, tail)
         elif isinstance(node, ASTLet):
-            return self._generate_let(node, tail)
+            return self._generate_let(node)
+        elif isinstance(node, ASTProgram):
+            return self._generate_progn(node)
         else:
             raise NotImplementedError(f"Unknown node: {type(node)}")
-    
+
     def _generate_literal(self, node: ASTLiteral) -> str:
         if isinstance(node.value, bool):
             return 'LISP_T' if node.value else 'LISP_NIL'
@@ -87,13 +90,13 @@ class CCodeGenerator:
             return f'make_string("{escaped}")'
         else:
             raise NotImplementedError(f"Unknown literal: {type(node.value)}")
-    
+
     def _generate_symbol(self, node: ASTSymbol) -> str:
         return node.name
     
     def _generate_call(self, node: ASTCall, tail: bool = False) -> str:
         func_name = node.function.name
-        
+
         if not node.args:
             args_list = 'LISP_NIL'
         else:
@@ -101,7 +104,7 @@ class CCodeGenerator:
             for arg in reversed(node.args):
                 arg_code = self._generate_expr(arg, tail=False)
                 args_list = f'make_cons({arg_code}, {args_list})'
-        
+
         builtins_map = {
             '+': 'add',
             '-': 'sub',
@@ -118,7 +121,7 @@ class CCodeGenerator:
             'cons': 'cons',
             'null?': 'null'
         }
-        
+
         if func_name in builtins_map:
             return f'lisp_{builtins_map[func_name]}({args_list})'
         
@@ -152,7 +155,7 @@ class CCodeGenerator:
         cond_var = f"_cond_{self.temp_counter}"
         result_var = f"_result_{self.temp_counter}"
         self.temp_counter += 1
-        
+
         if node.else_branch:
             else_branch = self._generate_expr(node.else_branch, tail)
             
@@ -217,7 +220,7 @@ class CCodeGenerator:
     def _generate_let(self, node: ASTLet, tail: bool = False) -> str:
         code = []
         code.append('({')
-        
+
         for name, value in node.bindings:
             val_code = self._generate_expr(value, tail=False)
             code.append(f'    LispObject* {name} = {val_code};')
@@ -227,6 +230,11 @@ class CCodeGenerator:
         code.append('})')
         
         return '\n'.join(code)
+      
+    
+    def _generate_progn(self, node: ASTProgram) -> str:
+        return '({' + ';'.join([self._generate_expr(node)
+                                for node in node.expressions]) + ';})'
     
     def _is_tail_call(self, node: ASTNode) -> bool:
         if not isinstance(node, ASTCall):
