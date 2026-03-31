@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Optional, dataclass_transform
 
 
 class ASTNode:
@@ -40,6 +40,7 @@ class ASTDefun(ASTNode):
 class ASTMacro(ASTNode):
     name: str
     params: list[str]
+    splicing_param: str | None
     body: ASTNode
 
 
@@ -52,6 +53,11 @@ class ASTLet(ASTNode):
 @dataclass
 class ASTUnquote(ASTNode):
     name: str
+
+
+@dataclass
+class ASTUnquoteSplicing(ASTUnquote):
+    pass
 
 
 @dataclass

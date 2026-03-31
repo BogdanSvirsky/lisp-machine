@@ -12,15 +12,11 @@ class Parser:
         self.tokens: list[Token] = []
         self.pos: int = 0
         self.macros: dict[str, ASTMacro] = {}
-        self.in_quote = False
-        self.in_defmacro = False
 
     def parse(self, tokens: Sequence[Token]) -> ASTProgram:
         self.tokens = list(tokens)
         self.pos = 0
         self.macros = {}
-        self.in_quote = False
-        self.in_defmacro = False
         expressions = []
 
         while self.pos < len(self.tokens):
@@ -39,24 +35,37 @@ class Parser:
 
         return ASTProgram(expressions)
 
-    def _parse_expr(self) -> ASTNode:
+    def _parse_expr(self, in_quote: bool = False, quote_params: list[str] = [
+    ], splicing_param: str = "") -> ASTNode:
         token = self._peek()
 
-        if self.in_defmacro:
-            if isinstance(token, Backquote):
-                self._advance()
-                self.in_quote = True
-                return self._parse_expr()
-            if isinstance(token, Unquote):
-                if not self.in_quote:
-                    raise ParseException("Unquote without Backquote")
-                self._advance()
-                token = self._peek()
-                if not isinstance(token, Symbol):
-                    raise ParseException("No symbol after Unquote")
-                self._advance()
-                return ASTUnquote(token.value)
-
+        if isinstance(token, Backquote):
+            self._advance()
+            return self._parse_expr(True)
+        if isinstance(token, Unquote):
+            if not in_quote:
+                raise ParseException("Unquote without Backquote")
+            self._advance()
+            token = self._peek()
+            if not isinstance(token, Symbol):
+                raise ParseException("No symbol after Unquote")
+            if token.value not in quote_params:
+                raise ParseException(f"Symbol \"{token.value}\" not in quote")
+            self._advance()
+            return ASTUnquote(token.value)
+        if isinstance(token, UnquoteSplicing):
+            if not in_quote:
+                raise ParseException("Unquote splicing without Backquote")
+            self._advance()
+            token = self._peek()
+            if not isinstance(token, Symbol):
+                raise ParseException("No symbol after unquote splicing")
+            if token.value != splicing_param:
+                raise ParseException(
+                    f"Symbol \"{
+                        token.value}\" isn't unquote splicing param")
+            self._advance()
+            return ASTUnquoteSplicing(token.value)
         if isinstance(token, LParen):
             return self._parse_list()
         elif isinstance(token, Number) or isinstance(token, String) \
@@ -198,34 +207,50 @@ class Parser:
         self._advance()
 
         params = []
+        splicing_param = ""
         while not isinstance(self._peek(), RParen):
             param_token = self._peek()
             if not isinstance(param_token, Symbol):
                 raise ParseException("Expected macro parameter name")
+            elif param_token.value == '&body':
+                if splicing_param != "":
+                    raise ParseException("Splicing param already defined")
+                self._advance()
+                param_token = self._peek()
+                if not isinstance(param_token, Symbol):
+                    raise ParseException("Expected splicing param name")
+                splicing_param = param_token.value
+                self._advance()
+                continue
             params.append(param_token.value)
             self._advance()
 
         self._advance()
 
-        self.in_defmacro = True
-        body = self._parse_expr()
-        self.in_defmacro = False
-        self.in_quote = False
+        body = self._parse_expr(
+            quote_params=params,
+            splicing_param=splicing_param)
 
         if not isinstance(self._peek(), RParen):
             raise ParseException("Expected ')'")
         self._advance()
 
-        return ASTMacro(name=name, params=params, body=body)
+        return ASTMacro(
+            name, params, splicing_param if splicing_param != '' else None, body)
 
     def _unpack_macro(self, macro: ASTMacro, args: list[ASTNode]) -> ASTNode:
-        if len(macro.params) != len(args):
+        if len(macro.params) < len(args) or \
+                (len(macro.params) > len(args) and macro.splicing_param is None):
             raise ParseException(
                 f'Invalid arguments count for macro {macro.name}: {str(args)}')
 
         params: dict[str, ASTNode] = {}
-        for key, value in zip(macro.params, args):
+        for key, value in zip(macro.params, args[:len(macro.params)]):
             params[key] = value
+
+        splicing_args = args[len(macro.params):]
+        if len(splicing_args) == 0:
+            splicing_args.append(ASTLiteral(False))
 
         def unpack(node: ASTNode) -> ASTNode:
             if isinstance(node, ASTUnquote):
@@ -233,7 +258,20 @@ class Parser:
                     raise ParseException(
                         f'Invalid name to unquote: {node.name}')
                 return params[node.name]
+            elif isinstance(node, ASTUnquoteSplicing):
+                raise ParseException('Unpacking unquote splicing')
             elif isinstance(node, ASTCall):
+                call_args = []
+                for arg in node.args:
+                    if isinstance(arg, ASTUnquoteSplicing):
+                        if arg.name != macro.splicing_param:
+                            raise ParseException(
+                                f'Invalid name to unquote splicing: {arg.name}')
+                        else:
+                            call_args.extend(splicing_args)
+                    else:
+                        call_args.append(arg)
+
                 return ASTCall(
                     function=node.function,
                     args=[unpack(arg) for arg in node.args]
@@ -242,11 +280,13 @@ class Parser:
                 return ASTIf(
                     condition=unpack(node.condition),
                     then_branch=unpack(node.then_branch),
-                    else_branch=unpack(node.else_branch) if node.else_branch else None
+                    else_branch=unpack(
+                        node.else_branch) if node.else_branch else None
                 )
             elif isinstance(node, ASTLet):
                 return ASTLet(
-                    bindings=[(name, unpack(val)) for name, val in node.bindings],
+                    bindings=[(name, unpack(val))
+                              for name, val in node.bindings],
                     body=unpack(node.body)
                 )
             return node
@@ -262,4 +302,3 @@ class Parser:
         token = self._peek()
         self.pos += 1
         return token
-

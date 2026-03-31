@@ -43,3 +43,7 @@ class Backquote(Token):
 
 class Unquote(Token):
     pass
+
+
+class UnquoteSplicing(Token):
+    pass

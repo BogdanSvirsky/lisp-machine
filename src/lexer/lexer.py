@@ -19,7 +19,7 @@ class Lexer:
 
         while i < length:
             symb = content[i]
-            
+
             if re.match(r'\s', symb):
                 token = self._process_current_token()
                 if token:
@@ -34,7 +34,7 @@ class Lexer:
                 tokens.append(LParen() if symb == '(' else RParen())
                 i += 1
                 continue
-            
+
             if symb == '`':
                 token = self._process_current_token()
                 if token:
@@ -42,31 +42,35 @@ class Lexer:
                 tokens.append(Backquote())
                 i += 1
                 continue
-            
+
             if symb == ',':
                 token = self._process_current_token()
                 if token:
                     tokens.append(token)
-                tokens.append(Unquote())
+                if i + 1 < length and content[i + 1] == '@':
+                    tokens.append(UnquoteSplicing())
+                    i += 1
+                else:
+                    tokens.append(Unquote())
                 i += 1
                 continue
-            
+
             if symb == '"':
                 token = self._process_current_token()
                 if token:
                     tokens.append(token)
-                
+
                 end = content.find('"', i + 1)
                 if end == -1:
                     raise Exception("Unclosed string")
-                
+
                 self._current_token = content[i:end + 1]
                 token = self._process_current_token()
                 if token:
                     tokens.append(token)
                 i = end + 1
                 continue
-            
+
             self._current_token += symb
             i += 1
 
@@ -97,6 +101,7 @@ class Lexer:
                 token = Boolean(self._current_token == 't')
             else:
                 token = Symbol(self._current_token)
-        
+
         self._current_token = ''
         return token
+
