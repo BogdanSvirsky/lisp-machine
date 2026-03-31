@@ -111,6 +111,11 @@ class Parser:
                 return self._parse_let()
             case 'defmacro':
                 return self._parse_defmacro()
+            case 'and':
+                return self._parse_and()
+            case 'or':
+                return self._parse_or()
+
 
         args = []
         while not isinstance(self._peek(), RParen):
@@ -323,6 +328,20 @@ class Parser:
             return node
 
         return unpack(macro.body)
+    
+    def _parse_and(self) -> ASTAnd:
+        args = []
+        while not isinstance(self._peek(), RParen):
+            args.append(self._parse_expr())
+        self._advance()
+        return ASTAnd(args=args)
+
+    def _parse_or(self) -> ASTOr:
+        args = []
+        while not isinstance(self._peek(), RParen):
+            args.append(self._parse_expr())
+        self._advance()
+        return ASTOr(args=args)
 
     def _peek(self) -> Token:
         if self.pos >= len(self.tokens):

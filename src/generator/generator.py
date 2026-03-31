@@ -75,6 +75,10 @@ class CCodeGenerator:
             return self._generate_let(node)
         elif isinstance(node, ASTProgram):
             return self._generate_progn(node)
+        elif isinstance(node, ASTAnd):
+            return self._generate_and(node, tail)
+        elif isinstance(node, ASTOr):
+            return self._generate_or(node, tail)
         else:
             raise NotImplementedError(f"Unknown node: {type(node)}")
 
@@ -242,3 +246,63 @@ class CCodeGenerator:
         if node.function.name != self.current_function:
             return False
         return True
+
+    def _generate_and(self, node: ASTAnd, tail: bool = False) -> str:
+        if not node.args:
+            return 'LISP_T'
+        
+        if len(node.args) == 1:
+            return self._generate_expr(node.args[0], tail)
+        
+        result_var = f"_and_{self.temp_counter}"
+        self.temp_counter += 1
+        
+        code = []
+        code.append(f'LispObject* {result_var} = LISP_T;')
+        
+        for i, arg in enumerate(node.args[:-1]):
+            arg_code = self._generate_expr(arg, tail=False)
+            code.append(f'LispObject* _tmp_{i} = {arg_code};')
+            code.append(f'if (_tmp_{i} == LISP_NIL) {{')
+            code.append(f'    {result_var} = LISP_NIL;')
+            code.append(f'    goto and_end_{self.temp_counter};')
+            code.append(f'}}')
+        
+        last_code = self._generate_expr(node.args[-1], tail=False)
+        code.append(f'{result_var} = {last_code};')
+        code.append(f'and_end_{self.temp_counter}:')
+        code.append(f'{result_var};')
+        
+        result = '\n'.join(code)
+        
+        return f'({{\n{result}\n}})'
+
+    def _generate_or(self, node: ASTOr, tail: bool = False) -> str:
+        if not node.args:
+            return 'LISP_NIL'
+        
+        if len(node.args) == 1:
+            return self._generate_expr(node.args[0], tail)
+        
+        result_var = f"_or_{self.temp_counter}"
+        self.temp_counter += 1
+        
+        code = []
+        code.append(f'LispObject* {result_var} = LISP_NIL;')
+        
+        for i, arg in enumerate(node.args[:-1]):
+            arg_code = self._generate_expr(arg, tail=False)
+            code.append(f'LispObject* _tmp_{i} = {arg_code};')
+            code.append(f'if (_tmp_{i} != LISP_NIL) {{')
+            code.append(f'    {result_var} = _tmp_{i};')
+            code.append(f'    goto or_end_{self.temp_counter};')
+            code.append(f'}}')
+        
+        last_code = self._generate_expr(node.args[-1], tail=False)
+        code.append(f'{result_var} = {last_code};')
+        code.append(f'or_end_{self.temp_counter}:')
+        code.append(f'{result_var};')
+        
+        result = '\n'.join(code)
+        
+        return f'({{\n{result}\n}})'

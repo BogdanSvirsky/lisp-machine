@@ -63,3 +63,11 @@ class ASTUnquoteSplicing(ASTNode):
 @dataclass
 class ASTProgram(ASTNode):
     expressions: list[ASTNode]
+
+@dataclass
+class ASTAnd(ASTNode):
+    args: list[ASTNode]
+
+@dataclass
+class ASTOr(ASTNode):
+    args: list[ASTNode]
