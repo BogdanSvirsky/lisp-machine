@@ -231,3 +231,24 @@ class TestLexer:
         ]
 
         assert tokens == expected
+
+    def test_unquote_splicing2(self):
+        program = """
+        (defmacro my-when (condition &body body)
+          `(if ,condition
+               (progn ,@body)))
+        """
+
+        lexer = Lexer()
+        tokens = lexer.tokenize(io.StringIO(program))
+
+        expected = [
+            LParen(), Symbol('defmacro'), Symbol('my-when'),
+            LParen(), Symbol('condition'), Symbol('&body'), Symbol('body'), RParen(),
+            Backquote(), LParen(), Symbol('if'), Unquote(), Symbol('condition'),
+            LParen(), Symbol('progn'), UnquoteSplicing(), Symbol('body'), RParen(),
+            RParen(),
+            RParen()
+        ]
+
+        assert tokens == expected

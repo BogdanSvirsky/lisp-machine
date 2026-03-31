@@ -56,8 +56,8 @@ class ASTUnquote(ASTNode):
 
 
 @dataclass
-class ASTUnquoteSplicing(ASTUnquote):
-    pass
+class ASTUnquoteSplicing(ASTNode):
+    name: str
 
 
 @dataclass
