@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <ctype.h>
 
 typedef enum {
     TYPE_INT,
@@ -66,6 +67,7 @@ LispObject* lisp_lt(LispObject* args);
 LispObject* lisp_le(LispObject* args);
 LispObject* lisp_eq(LispObject* args);
 
+LispObject* lisp_read(LispObject* args);
 LispObject* lisp_print(LispObject* args);
 
 LispObject* lisp_car(LispObject* args);

@@ -76,6 +76,22 @@ LispObject* make_function(LispObject* (*func)(LispObject*)) {
     return obj;
 }
 
+LispObject* make_symbol(const char* name) {
+    LispObject* obj = malloc(sizeof(LispObject));
+    if (!obj) {
+        fprintf(stderr, "Error: memory allocation failed\n");
+        exit(1);
+    }
+    obj->type = TYPE_SYMBOL;
+    obj->value.sym_val = strdup(name);
+    if (!obj->value.sym_val) {
+        fprintf(stderr, "Error: memory allocation failed\n");
+        free(obj);
+        exit(1);
+    }
+    return obj;
+}
+
 LispObject* car(LispObject* obj) {
     if (obj == LISP_NIL) {
         fprintf(stderr, "Error: car of nil\n");
@@ -362,6 +378,98 @@ LispObject* lisp_print(LispObject* args) {
     return obj;
 }
 
+static LispObject* read_object(void) {
+    int c;
+    while ((c = getchar()) != EOF && isspace(c));
+    
+    if (c == EOF) {
+        return LISP_NIL;
+    }
+    
+    if (c == '(') {
+        LispObject* head = LISP_NIL;
+        LispObject* tail = LISP_NIL;
+        
+        while (1) {
+            int next = getchar();
+            while (next != EOF && isspace(next)) {
+                next = getchar();
+            }
+            ungetc(next, stdin);
+            
+            if (next == ')') {
+                getchar();
+                break;
+            }
+            
+            LispObject* obj = read_object();
+            LispObject* new_cell = make_cons(obj, LISP_NIL);
+            
+            if (head == LISP_NIL) {
+                head = new_cell;
+                tail = head;
+            } else {
+                tail->value.cons.cdr = new_cell;
+                tail = new_cell;
+            }
+        }
+        return head;
+    }
+    else if (c == '"') {
+        char buf[1024];
+        int pos = 0;
+        while ((c = getchar()) != '"' && c != EOF && pos < 1023) {
+            if (c == '\\') {
+                c = getchar();
+                if (c == 'n') c = '\n';
+                else if (c == 't') c = '\t';
+            }
+            buf[pos++] = c;
+        }
+        buf[pos] = '\0';
+        return make_string(buf);
+    }
+    else if (c == '\'') {
+        LispObject* expr = read_object();
+        return make_cons(make_symbol("quote"), make_cons(expr, LISP_NIL));
+    }
+    else {
+        char buf[256];
+        int pos = 0;
+        buf[pos++] = c;
+        while ((c = getchar()) != EOF && !isspace(c) && c != '(' && c != ')' && c != '"') {
+            if (pos < 255) buf[pos++] = c;
+        }
+        ungetc(c, stdin);
+        buf[pos] = '\0';
+        
+        char* endptr;
+        long val = strtol(buf, &endptr, 10);
+        if (*endptr == '\0') {
+            return make_integer((int)val);
+        }
+        
+        double fval = strtod(buf, &endptr);
+        if (*endptr == '\0') {
+            return make_float(fval);
+        }
+        
+        if (strcmp(buf, "t") == 0 || strcmp(buf, "#t") == 0) {
+            return LISP_T;
+        }
+        if (strcmp(buf, "nil") == 0 || strcmp(buf, "#f") == 0) {
+            return LISP_NIL;
+        }
+        
+        return make_symbol(buf);
+    }
+}
+
+LispObject* lisp_read(LispObject* args) {
+    (void)args;
+    return read_object();
+}
+
 LispObject* lisp_car(LispObject* args) {
     LispObject* list = get_arg(0, args);
     return car(list);
@@ -393,6 +501,7 @@ void lisp_init(void) {
     lisp_define("<", lisp_lt);
     lisp_define("<=", lisp_le);
     lisp_define("==", lisp_eq);
+    lisp_define("read", lisp_read);
     lisp_define("print", lisp_print);
     lisp_define("car", lisp_car);
     lisp_define("cdr", lisp_cdr);

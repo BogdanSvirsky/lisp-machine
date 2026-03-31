@@ -1,8 +1,7 @@
 (let ((x 10))
     (print x))
 
-(let ((x 10)
-      (y 20))
+(let ((x 10) (y 20))
     (print (+ x y)))
 
 (let ((x (+ 5 5))
