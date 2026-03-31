@@ -491,6 +491,98 @@ LispObject* lisp_null(LispObject* args) {
     return make_boolean(obj == LISP_NIL);
 }
 
+LispObject* lisp_system(LispObject* args) {
+    LispObject* cmd = get_arg(0, args);
+    if (cmd->type != TYPE_STRING) {
+        fprintf(stderr, "Error: system expects string\n");
+        exit(1);
+    }
+    int result = system(cmd->value.str_val);
+    return make_integer(result);
+}
+
+LispObject* lisp_getenv(LispObject* args) {
+    LispObject* name = get_arg(0, args);
+    if (name->type != TYPE_STRING) {
+        fprintf(stderr, "Error: getenv expects string\n");
+        exit(1);
+    }
+    char* val = getenv(name->value.str_val);
+    return val ? make_string(val) : LISP_NIL;
+}
+
+LispObject* lisp_setenv(LispObject* args) {
+    LispObject* name = get_arg(0, args);
+    LispObject* value = get_arg(1, args);
+    if (name->type != TYPE_STRING || value->type != TYPE_STRING) {
+        fprintf(stderr, "Error: setenv expects two strings\n");
+        exit(1);
+    }
+    int result = setenv(name->value.str_val, value->value.str_val, 1);
+    return make_boolean(result == 0);
+}
+
+LispObject* lisp_unsetenv(LispObject* args) {
+    LispObject* name = get_arg(0, args);
+    if (name->type != TYPE_STRING) {
+        fprintf(stderr, "Error: unsetenv expects string\n");
+        exit(1);
+    }
+    int result = unsetenv(name->value.str_val);
+    return make_boolean(result == 0);
+}
+
+LispObject* lisp_time(LispObject* args) {
+    (void)args;
+    return make_integer((int)time(NULL));
+}
+
+LispObject* lisp_sleep(LispObject* args) {
+    LispObject* seconds = get_arg(0, args);
+    if (seconds->type != TYPE_INT) {
+        fprintf(stderr, "Error: sleep expects integer\n");
+        exit(1);
+    }
+    sleep(seconds->value.int_val);
+    return LISP_NIL;
+}
+
+LispObject* lisp_exit(LispObject* args) {
+    int code = 0;
+    if (length(args) > 0) {
+        LispObject* code_obj = get_arg(0, args);
+        if (code_obj->type == TYPE_INT) {
+            code = code_obj->value.int_val;
+        }
+    }
+    exit(code);
+    return LISP_NIL;
+}
+
+LispObject* lisp_getpid(LispObject* args) {
+    (void)args;
+    return make_integer((int)getpid());
+}
+
+LispObject* lisp_getcwd(LispObject* args) {
+    (void)args;
+    char buf[1024];
+    if (getcwd(buf, sizeof(buf))) {
+        return make_string(buf);
+    }
+    return LISP_NIL;
+}
+
+LispObject* lisp_chdir(LispObject* args) {
+    LispObject* path = get_arg(0, args);
+    if (path->type != TYPE_STRING) {
+        fprintf(stderr, "Error: chdir expects string\n");
+        exit(1);
+    }
+    int result = chdir(path->value.str_val);
+    return make_boolean(result == 0);
+}
+
 void lisp_init(void) {
     lisp_define("+", lisp_add);
     lisp_define("-", lisp_sub);
@@ -507,4 +599,14 @@ void lisp_init(void) {
     lisp_define("cdr", lisp_cdr);
     lisp_define("cons", lisp_cons);
     lisp_define("null?", lisp_null);
+    lisp_define("system", lisp_system);
+    lisp_define("getenv", lisp_getenv);
+    lisp_define("setenv", lisp_setenv);
+    lisp_define("unsetenv", lisp_unsetenv);
+    lisp_define("time", lisp_time);
+    lisp_define("sleep", lisp_sleep);
+    lisp_define("exit", lisp_exit);
+    lisp_define("getpid", lisp_getpid);
+    lisp_define("getcwd", lisp_getcwd);
+    lisp_define("chdir", lisp_chdir);
 }

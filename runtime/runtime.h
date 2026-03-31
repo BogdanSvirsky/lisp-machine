@@ -6,6 +6,9 @@
 #include <string.h>
 #include <math.h>
 #include <ctype.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <time.h>
 
 typedef enum {
     TYPE_INT,
@@ -74,6 +77,17 @@ LispObject* lisp_car(LispObject* args);
 LispObject* lisp_cdr(LispObject* args);
 LispObject* lisp_cons(LispObject* args);
 LispObject* lisp_null(LispObject* args);
+
+LispObject* lisp_system(LispObject* args);
+LispObject* lisp_getenv(LispObject* args);
+LispObject* lisp_setenv(LispObject* args);
+LispObject* lisp_unsetenv(LispObject* args);
+LispObject* lisp_time(LispObject* args);
+LispObject* lisp_sleep(LispObject* args);
+LispObject* lisp_exit(LispObject* args);
+LispObject* lisp_getpid(LispObject* args);
+LispObject* lisp_getcwd(LispObject* args);
+LispObject* lisp_chdir(LispObject* args);
 
 void lisp_init(void);
 
