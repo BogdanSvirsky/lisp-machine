@@ -1,0 +1,612 @@
+#include "runtime.h"
+
+LispObject LISP_NIL_OBJ = {
+    .type = TYPE_CONS,
+    .value.cons.car = NULL,
+    .value.cons.cdr = NULL
+};
+
+LispObject LISP_T_OBJ = {
+    .type = TYPE_BOOLEAN,
+    .value.bool_val = 1
+};
+
+LispObject* make_integer(int n) {
+    LispObject* obj = malloc(sizeof(LispObject));
+    if (!obj) {
+        fprintf(stderr, "Error: memory allocation failed\n");
+        exit(1);
+    }
+    obj->type = TYPE_INT;
+    obj->value.int_val = n;
+    return obj;
+}
+
+LispObject* make_float(double f) {
+    LispObject* obj = malloc(sizeof(LispObject));
+    if (!obj) {
+        fprintf(stderr, "Error: memory allocation failed\n");
+        exit(1);
+    }
+    obj->type = TYPE_FLOAT;
+    obj->value.float_val = f;
+    return obj;
+}
+
+LispObject* make_string(const char* str) {
+    LispObject* obj = malloc(sizeof(LispObject));
+    if (!obj) {
+        fprintf(stderr, "Error: memory allocation failed\n");
+        exit(1);
+    }
+    obj->type = TYPE_STRING;
+    obj->value.str_val = strdup(str);
+    if (!obj->value.str_val) {
+        fprintf(stderr, "Error: memory allocation failed\n");
+        free(obj);
+        exit(1);
+    }
+    return obj;
+}
+
+LispObject* make_boolean(int b) {
+    return b ? LISP_T : LISP_NIL;
+}
+
+LispObject* make_cons(LispObject* car, LispObject* cdr) {
+    LispObject* obj = malloc(sizeof(LispObject));
+    if (!obj) {
+        fprintf(stderr, "Error: memory allocation failed\n");
+        exit(1);
+    }
+    obj->type = TYPE_CONS;
+    obj->value.cons.car = car;
+    obj->value.cons.cdr = cdr;
+    return obj;
+}
+
+LispObject* make_function(LispObject* (*func)(LispObject*)) {
+    LispObject* obj = malloc(sizeof(LispObject));
+    if (!obj) {
+        fprintf(stderr, "Error: memory allocation failed\n");
+        exit(1);
+    }
+    obj->type = TYPE_FUNCTION;
+    obj->value.func_val = func;
+    return obj;
+}
+
+LispObject* make_symbol(const char* name) {
+    LispObject* obj = malloc(sizeof(LispObject));
+    if (!obj) {
+        fprintf(stderr, "Error: memory allocation failed\n");
+        exit(1);
+    }
+    obj->type = TYPE_SYMBOL;
+    obj->value.sym_val = strdup(name);
+    if (!obj->value.sym_val) {
+        fprintf(stderr, "Error: memory allocation failed\n");
+        free(obj);
+        exit(1);
+    }
+    return obj;
+}
+
+LispObject* car(LispObject* obj) {
+    if (obj == LISP_NIL) {
+        fprintf(stderr, "Error: car of nil\n");
+        exit(1);
+    }
+    if (obj->type != TYPE_CONS) {
+        fprintf(stderr, "Error: car called on non-cons\n");
+        exit(1);
+    }
+    return obj->value.cons.car;
+}
+
+LispObject* cdr(LispObject* obj) {
+    if (obj == LISP_NIL) {
+        fprintf(stderr, "Error: cdr of nil\n");
+        exit(1);
+    }
+    if (obj->type != TYPE_CONS) {
+        fprintf(stderr, "Error: cdr called on non-cons\n");
+        exit(1);
+    }
+    return obj->value.cons.cdr;
+}
+
+int length(LispObject* list) {
+    int len = 0;
+    LispObject* current = list;
+    while (current != LISP_NIL && current->type == TYPE_CONS) {
+        len++;
+        current = cdr(current);
+    }
+    return len;
+}
+
+LispObject* get_arg(int n, LispObject* args) {
+    LispObject* current = args;
+    for (int i = 0; i < n; i++) {
+        if (current == LISP_NIL || current->type != TYPE_CONS) {
+            fprintf(stderr, "Error: not enough arguments (need %d)\n", n + 1);
+            exit(1);
+        }
+        current = cdr(current);
+    }
+    if (current == LISP_NIL || current->type != TYPE_CONS) {
+        fprintf(stderr, "Error: argument %d not found\n", n);
+        exit(1);
+    }
+    return car(current);
+}
+
+double to_double(LispObject* obj) {
+    if (obj->type == TYPE_INT) {
+        return (double)obj->value.int_val;
+    } else if (obj->type == TYPE_FLOAT) {
+        return obj->value.float_val;
+    } else {
+        fprintf(stderr, "Error: expected number, got type %d\n", obj->type);
+        exit(1);
+    }
+}
+
+typedef struct {
+    char* name;
+    LispObject* (*func)(LispObject*);
+} FunctionEntry;
+
+static FunctionEntry function_table[100];
+static int function_count = 0;
+
+void lisp_define(const char* name, LispObject* (*func)(LispObject*)) {
+    function_table[function_count].name = strdup(name);
+    function_table[function_count].func = func;
+    function_count++;
+}
+
+LispObject* lisp_lookup(const char* name) {
+    for (int i = 0; i < function_count; i++) {
+        if (strcmp(function_table[i].name, name) == 0) {
+            return make_function(function_table[i].func);
+        }
+    }
+    return LISP_NIL;
+}
+
+LispObject* lisp_apply(LispObject* args) {
+    LispObject* fn_obj = get_arg(0, args);
+    LispObject* arg_list = get_arg(1, args);
+    
+    if (fn_obj->type != TYPE_FUNCTION) {
+        fprintf(stderr, "Error: apply expects a function, got type %d\n", fn_obj->type);
+        exit(1);
+    }
+    
+    LispObject* (*func)(LispObject*) = fn_obj->value.func_val;
+    return func(arg_list);
+}
+
+LispObject* lisp_add(LispObject* args) {
+    if (args == LISP_NIL) return make_integer(0);
+    
+    double sum = 0.0;
+    int is_int = 1;
+    LispObject* current = args;
+    
+    while (current != LISP_NIL && current->type == TYPE_CONS) {
+        LispObject* arg = car(current);
+        sum += to_double(arg);
+        if (arg->type != TYPE_INT) is_int = 0;
+        current = cdr(current);
+    }
+    
+    if (is_int && sum == (int)sum) {
+        return make_integer((int)sum);
+    }
+    return make_float(sum);
+}
+
+LispObject* lisp_sub(LispObject* args) {
+    int argc = length(args);
+    if (argc == 0) {
+        fprintf(stderr, "Error: - expects at least 1 argument\n");
+        exit(1);
+    }
+    
+    double result = to_double(get_arg(0, args));
+    int is_int = (get_arg(0, args)->type == TYPE_INT);
+    
+    for (int i = 1; i < argc; i++) {
+        LispObject* arg = get_arg(i, args);
+        result -= to_double(arg);
+        if (arg->type != TYPE_INT) is_int = 0;
+    }
+    
+    if (is_int && result == (int)result) {
+        return make_integer((int)result);
+    }
+    return make_float(result);
+}
+
+LispObject* lisp_mul(LispObject* args) {
+    if (args == LISP_NIL) return make_integer(1);
+    
+    double product = 1.0;
+    int is_int = 1;
+    LispObject* current = args;
+    
+    while (current != LISP_NIL && current->type == TYPE_CONS) {
+        LispObject* arg = car(current);
+        product *= to_double(arg);
+        if (arg->type != TYPE_INT) is_int = 0;
+        current = cdr(current);
+    }
+    
+    if (is_int && product == (int)product) {
+        return make_integer((int)product);
+    }
+    return make_float(product);
+}
+
+LispObject* lisp_div(LispObject* args) {
+    int argc = length(args);
+    if (argc == 0) {
+        fprintf(stderr, "Error: / expects at least 1 argument\n");
+        exit(1);
+    }
+    
+    double result = to_double(get_arg(0, args));
+    int is_int = (get_arg(0, args)->type == TYPE_INT);
+    
+    for (int i = 1; i < argc; i++) {
+        LispObject* arg = get_arg(i, args);
+        double divisor = to_double(arg);
+        if (divisor == 0.0) {
+            fprintf(stderr, "Error: division by zero\n");
+            exit(1);
+        }
+        result /= divisor;
+        if (arg->type != TYPE_INT) is_int = 0;
+    }
+    
+    if (is_int && result == (int)result) {
+        return make_integer((int)result);
+    }
+    return make_float(result);
+}
+
+LispObject* lisp_gt(LispObject* args) {
+    if (length(args) != 2) {
+        fprintf(stderr, "Error: > expects 2 arguments\n");
+        exit(1);
+    }
+    double a = to_double(get_arg(0, args));
+    double b = to_double(get_arg(1, args));
+    return make_boolean(a > b);
+}
+
+LispObject* lisp_ge(LispObject* args) {
+    if (length(args) != 2) {
+        fprintf(stderr, "Error: >= expects 2 arguments\n");
+        exit(1);
+    }
+    double a = to_double(get_arg(0, args));
+    double b = to_double(get_arg(1, args));
+    return make_boolean(a >= b);
+}
+
+LispObject* lisp_lt(LispObject* args) {
+    if (length(args) != 2) {
+        fprintf(stderr, "Error: < expects 2 arguments\n");
+        exit(1);
+    }
+    double a = to_double(get_arg(0, args));
+    double b = to_double(get_arg(1, args));
+    return make_boolean(a < b);
+}
+
+LispObject* lisp_le(LispObject* args) {
+    if (length(args) != 2) {
+        fprintf(stderr, "Error: <= expects 2 arguments\n");
+        exit(1);
+    }
+    double a = to_double(get_arg(0, args));
+    double b = to_double(get_arg(1, args));
+    return make_boolean(a <= b);
+}
+
+LispObject* lisp_eq(LispObject* args) {
+    if (length(args) != 2) {
+        fprintf(stderr, "Error: == expects 2 arguments\n");
+        exit(1);
+    }
+    double a = to_double(get_arg(0, args));
+    double b = to_double(get_arg(1, args));
+    return make_boolean(a == b);
+}
+
+void print_object(LispObject* obj) {
+    switch (obj->type) {
+        case TYPE_INT:
+            printf("%d", obj->value.int_val);
+            break;
+        case TYPE_FLOAT:
+            if (obj->value.float_val == (int)obj->value.float_val) {
+                printf("%.1f", obj->value.float_val);
+            } else {
+                printf("%g", obj->value.float_val);
+            }
+            break;
+        case TYPE_STRING:
+            printf("%s", obj->value.str_val);
+            break;
+        case TYPE_BOOLEAN:
+            printf("%s", obj->value.bool_val ? "t" : "nil");
+            break;
+        case TYPE_CONS:
+            printf("(");
+            LispObject* current = obj;
+            while (current != LISP_NIL && current->type == TYPE_CONS) {
+                print_object(car(current));
+                current = cdr(current);
+                if (current != LISP_NIL && current->type == TYPE_CONS) {
+                    printf(" ");
+                }
+            }
+            if (current != LISP_NIL) {
+                printf(" . ");
+                print_object(current);
+            }
+            printf(")");
+            break;
+        case TYPE_FUNCTION:
+            printf("#<function>");
+            break;
+        default:
+            printf("#<unknown>");
+            break;
+    }
+}
+
+LispObject* lisp_print(LispObject* args) {
+    LispObject* obj = get_arg(0, args);
+    print_object(obj);
+    printf("\n");
+    return obj;
+}
+
+static LispObject* read_object(void) {
+    int c;
+    while ((c = getchar()) != EOF && isspace(c));
+    
+    if (c == EOF) {
+        return LISP_NIL;
+    }
+    
+    if (c == '(') {
+        LispObject* head = LISP_NIL;
+        LispObject* tail = LISP_NIL;
+        
+        while (1) {
+            int next = getchar();
+            while (next != EOF && isspace(next)) {
+                next = getchar();
+            }
+            ungetc(next, stdin);
+            
+            if (next == ')') {
+                getchar();
+                break;
+            }
+            
+            LispObject* obj = read_object();
+            LispObject* new_cell = make_cons(obj, LISP_NIL);
+            
+            if (head == LISP_NIL) {
+                head = new_cell;
+                tail = head;
+            } else {
+                tail->value.cons.cdr = new_cell;
+                tail = new_cell;
+            }
+        }
+        return head;
+    }
+    else if (c == '"') {
+        char buf[1024];
+        int pos = 0;
+        while ((c = getchar()) != '"' && c != EOF && pos < 1023) {
+            if (c == '\\') {
+                c = getchar();
+                if (c == 'n') c = '\n';
+                else if (c == 't') c = '\t';
+            }
+            buf[pos++] = c;
+        }
+        buf[pos] = '\0';
+        return make_string(buf);
+    }
+    else if (c == '\'') {
+        LispObject* expr = read_object();
+        return make_cons(make_symbol("quote"), make_cons(expr, LISP_NIL));
+    }
+    else {
+        char buf[256];
+        int pos = 0;
+        buf[pos++] = c;
+        while ((c = getchar()) != EOF && !isspace(c) && c != '(' && c != ')' && c != '"') {
+            if (pos < 255) buf[pos++] = c;
+        }
+        ungetc(c, stdin);
+        buf[pos] = '\0';
+        
+        char* endptr;
+        long val = strtol(buf, &endptr, 10);
+        if (*endptr == '\0') {
+            return make_integer((int)val);
+        }
+        
+        double fval = strtod(buf, &endptr);
+        if (*endptr == '\0') {
+            return make_float(fval);
+        }
+        
+        if (strcmp(buf, "t") == 0 || strcmp(buf, "#t") == 0) {
+            return LISP_T;
+        }
+        if (strcmp(buf, "nil") == 0 || strcmp(buf, "#f") == 0) {
+            return LISP_NIL;
+        }
+        
+        return make_symbol(buf);
+    }
+}
+
+LispObject* lisp_read(LispObject* args) {
+    (void)args;
+    return read_object();
+}
+
+LispObject* lisp_car(LispObject* args) {
+    LispObject* list = get_arg(0, args);
+    return car(list);
+}
+
+LispObject* lisp_cdr(LispObject* args) {
+    LispObject* list = get_arg(0, args);
+    return cdr(list);
+}
+
+LispObject* lisp_cons(LispObject* args) {
+    LispObject* a = get_arg(0, args);
+    LispObject* b = get_arg(1, args);
+    return make_cons(a, b);
+}
+
+LispObject* lisp_null(LispObject* args) {
+    LispObject* obj = get_arg(0, args);
+    return make_boolean(obj == LISP_NIL);
+}
+
+LispObject* lisp_system(LispObject* args) {
+    LispObject* cmd = get_arg(0, args);
+    if (cmd->type != TYPE_STRING) {
+        fprintf(stderr, "Error: system expects string\n");
+        exit(1);
+    }
+    int result = system(cmd->value.str_val);
+    return make_integer(result);
+}
+
+LispObject* lisp_getenv(LispObject* args) {
+    LispObject* name = get_arg(0, args);
+    if (name->type != TYPE_STRING) {
+        fprintf(stderr, "Error: getenv expects string\n");
+        exit(1);
+    }
+    char* val = getenv(name->value.str_val);
+    return val ? make_string(val) : LISP_NIL;
+}
+
+LispObject* lisp_setenv(LispObject* args) {
+    LispObject* name = get_arg(0, args);
+    LispObject* value = get_arg(1, args);
+    if (name->type != TYPE_STRING || value->type != TYPE_STRING) {
+        fprintf(stderr, "Error: setenv expects two strings\n");
+        exit(1);
+    }
+    int result = setenv(name->value.str_val, value->value.str_val, 1);
+    return make_boolean(result == 0);
+}
+
+LispObject* lisp_unsetenv(LispObject* args) {
+    LispObject* name = get_arg(0, args);
+    if (name->type != TYPE_STRING) {
+        fprintf(stderr, "Error: unsetenv expects string\n");
+        exit(1);
+    }
+    int result = unsetenv(name->value.str_val);
+    return make_boolean(result == 0);
+}
+
+LispObject* lisp_time(LispObject* args) {
+    (void)args;
+    return make_integer((int)time(NULL));
+}
+
+LispObject* lisp_sleep(LispObject* args) {
+    LispObject* seconds = get_arg(0, args);
+    if (seconds->type != TYPE_INT) {
+        fprintf(stderr, "Error: sleep expects integer\n");
+        exit(1);
+    }
+    sleep(seconds->value.int_val);
+    return LISP_NIL;
+}
+
+LispObject* lisp_exit(LispObject* args) {
+    int code = 0;
+    if (length(args) > 0) {
+        LispObject* code_obj = get_arg(0, args);
+        if (code_obj->type == TYPE_INT) {
+            code = code_obj->value.int_val;
+        }
+    }
+    exit(code);
+    return LISP_NIL;
+}
+
+LispObject* lisp_getpid(LispObject* args) {
+    (void)args;
+    return make_integer((int)getpid());
+}
+
+LispObject* lisp_getcwd(LispObject* args) {
+    (void)args;
+    char buf[1024];
+    if (getcwd(buf, sizeof(buf))) {
+        return make_string(buf);
+    }
+    return LISP_NIL;
+}
+
+LispObject* lisp_chdir(LispObject* args) {
+    LispObject* path = get_arg(0, args);
+    if (path->type != TYPE_STRING) {
+        fprintf(stderr, "Error: chdir expects string\n");
+        exit(1);
+    }
+    int result = chdir(path->value.str_val);
+    return make_boolean(result == 0);
+}
+
+void lisp_init(void) {
+    lisp_define("+", lisp_add);
+    lisp_define("-", lisp_sub);
+    lisp_define("*", lisp_mul);
+    lisp_define("/", lisp_div);
+    lisp_define(">", lisp_gt);
+    lisp_define(">=", lisp_ge);
+    lisp_define("<", lisp_lt);
+    lisp_define("<=", lisp_le);
+    lisp_define("==", lisp_eq);
+    lisp_define("read", lisp_read);
+    lisp_define("print", lisp_print);
+    lisp_define("car", lisp_car);
+    lisp_define("cdr", lisp_cdr);
+    lisp_define("cons", lisp_cons);
+    lisp_define("null?", lisp_null);
+    lisp_define("system", lisp_system);
+    lisp_define("getenv", lisp_getenv);
+    lisp_define("setenv", lisp_setenv);
+    lisp_define("unsetenv", lisp_unsetenv);
+    lisp_define("time", lisp_time);
+    lisp_define("sleep", lisp_sleep);
+    lisp_define("exit", lisp_exit);
+    lisp_define("getpid", lisp_getpid);
+    lisp_define("getcwd", lisp_getcwd);
+    lisp_define("chdir", lisp_chdir);
+}
